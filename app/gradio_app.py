@@ -271,10 +271,15 @@ class ReIDDemoEngine:
         items: list[tuple[Any, str]] = []
         for rank, gid in enumerate(order, start=1):
             path = self.gallery.img_paths[int(gid)]
+            try:
+                img = PILImage.open(path).convert("RGB")
+            except (OSError, ValueError):
+                logger.warning("Skipping unreadable gallery image %s", path)
+                continue
             pid = self.gallery.pids[int(gid)]
             camid = self.gallery.camids[int(gid)]
             caption = f"#{rank} | ID {pid} | Cam {camid} | sim {sims[int(gid)]:.3f}"
-            items.append((PILImage.open(path).convert("RGB"), caption))
+            items.append((img, caption))
 
         suffix = "" if self.has_weights else " (random-init model - results are not meaningful)"
         return items, f"Showing top-{topk} matches by cosine similarity.{suffix}"
@@ -382,6 +387,14 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Create a public Gradio share link.",
     )
+    parser.add_argument(
+        "--auth",
+        type=str,
+        default=None,
+        metavar="USER:PASS",
+        help="Require HTTP basic auth as 'user:password'. Recommended whenever "
+        "binding to a non-loopback --server-name or using --share.",
+    )
     return parser
 
 
@@ -436,11 +449,24 @@ def main(argv: list[str] | None = None) -> int:
     )
     logger.info(engine.status_message.replace("**", ""))
 
+    auth: tuple[str, str] | None = None
+    if args.auth:
+        user, _, password = args.auth.partition(":")
+        auth = (user, password)
+    loopback = {"127.0.0.1", "localhost", "::1"}
+    if (args.share or args.server_name not in loopback) and auth is None:
+        logger.warning(
+            "Exposing the demo on %s without authentication; pass --auth "
+            "USER:PASS to require a login.",
+            "a public share link" if args.share else args.server_name,
+        )
+
     demo = build_demo(engine)
     demo.launch(
         server_name=args.server_name,
         server_port=args.server_port,
         share=args.share,
+        auth=auth,
     )
     return 0
 

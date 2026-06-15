@@ -20,6 +20,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   once at construction time; it was previously mutated during iteration, so
   `len(dataloader)` could disagree across epochs.
 - README `make install` command now matches the Makefile (`uv sync --extra dev`).
+- **Periodic evaluation cache:** the trainer now resets the evaluator's feature
+  cache before each in-loop evaluation, so mAP reflects the current epoch and
+  best-by-mAP saves the genuine best checkpoint (previously it reused the first
+  epoch's features and locked `best.pth` to the earliest evaluated epoch).
+- Camera-id parsing uses `\d+` (future-proof beyond nine cameras); `DataLoader`
+  `pin_memory` is enabled only when CUDA is actually present.
+- Gradio demo skips unreadable gallery images and gained an optional `--auth`
+  flag plus a warning when bound off-loopback without authentication.
 
 ### Planned
 - Publish trained checkpoint and populate the measured "strong baseline" results row.

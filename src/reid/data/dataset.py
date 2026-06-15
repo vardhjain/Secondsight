@@ -37,8 +37,9 @@ _SUBSET_DIRS: dict[str, str] = {
 }
 
 # Parses ``<pid>_c<camid>`` from a Market-1501 filename. ``pid`` may be ``-1``
-# (junk) hence the ``[-\d]+`` character class.
-_PATTERN = re.compile(r"([-\d]+)_c(\d)")
+# (junk) hence the ``[-\d]+`` character class; ``\d+`` on the camera id is
+# future-proof for datasets with more than nine cameras (Market-1501 has six).
+_PATTERN = re.compile(r"([-\d]+)_c(\d+)")
 
 
 class Market1501(Dataset):
