@@ -35,8 +35,9 @@ RUN apt-get update \
         libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# Install uv from its official, statically-linked image (pinned, reproducible).
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
+# Install uv from its official, statically-linked image, pinned to an exact
+# version for reproducible builds.
+COPY --from=ghcr.io/astral-sh/uv:0.11.21 /uv /uvx /usr/local/bin/
 
 WORKDIR /app
 
@@ -66,6 +67,11 @@ EXPOSE 7860
 # Bind to all interfaces so the demo is reachable from outside the container.
 ENV GRADIO_SERVER_NAME=0.0.0.0 \
     GRADIO_SERVER_PORT=7860
+
+# Liveness probe: the Gradio server should answer on the exposed port. The
+# start period is generous because the first request constructs the model.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:7860/').read()" || exit 1
 
 # Launch the interactive probe-vs-gallery demo by default. Weights are read
 # from REID_WEIGHTS; the app falls back to a random-init model if absent.
