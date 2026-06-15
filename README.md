@@ -1,5 +1,11 @@
 # person-reid-market1501
 
+[![CI](https://github.com/vardhjain/person-reid-market1501/actions/workflows/ci.yml/badge.svg)](https://github.com/vardhjain/person-reid-market1501/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.2%2B-ee4c2c.svg)](https://pytorch.org/)
+[![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-261230.svg)](https://github.com/astral-sh/ruff)
+
 A production-grade, configurable **Person Re-Identification (Re-ID)** system for the
 [Market-1501](https://zheng-lab.cecs.anu.edu.au/Project/project_reid.html) dataset.
 
@@ -43,7 +49,7 @@ The project uses a `src`-layout and is built with `hatchling`. With
 [`uv`](https://github.com/astral-sh/uv):
 
 ```bash
-make install          # uv venv + uv pip install -e ".[dev]"
+make install          # uv sync --extra dev
 ```
 
 or with plain pip:
@@ -93,6 +99,38 @@ The installed console entry points (`reid-download`, `reid-train`,
 Configuration is fully typed (`reid.config`) and round-trips to YAML.
 `configs/default.yaml` mirrors the dataclass defaults exactly; the headline
 recipe lives in `configs/market1501_strong_baseline.yaml`.
+
+## Results
+
+The strong-baseline recipe trains on a single GPU (a free Colab T4 is enough).
+The table is populated from a full training + evaluation run on Market-1501. The
+right-hand column lists the figures reported for the ResNet-50 + BNNeck strong
+baseline by Luo et al. (*Bag of Tricks*, CVPRW 2019) for context — these are
+**reference** values, not numbers produced by this repository.
+
+| Setting                   |  mAP  | Rank-1 | Rank-5 | Reference (Luo et al., 2019) |
+| ------------------------- | :---: | :----: | :----: | :--------------------------: |
+| Cosine + flip-TTA         |  _–_  |  _–_   |  _–_   |    ~85.9 mAP / ~94.5 R-1     |
+| + k-reciprocal re-ranking |  _–_  |  _–_   |  _–_   |    ~94.2 mAP / ~95.4 R-1     |
+
+> The placeholder cells are filled in once the checkpoint from a training run is
+> published. See [Reproducing the results](#reproducing-the-results) to generate
+> them yourself.
+
+### Reproducing the results
+
+Training takes roughly 40 minutes on a single modern GPU.
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/vardhjain/person-reid-market1501/blob/main/notebooks/train_colab.ipynb)
+
+Or run it locally, end to end:
+
+```bash
+make download                        # fetch Market-1501 via kagglehub
+make train DEVICE=cuda               # train the strong baseline -> outputs/best.pth
+make eval  WEIGHTS=outputs/best.pth  # CMC/mAP, then k-reciprocal re-ranking
+make demo  WEIGHTS=outputs/best.pth  # interactive probe-vs-gallery Gradio demo
+```
 
 ## Development
 

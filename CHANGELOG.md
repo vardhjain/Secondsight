@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1) and `SECURITY.md`.
+- Colab training notebook (`notebooks/train_colab.ipynb`) for one-click GPU
+  reproduction, linked from the README.
+- README status badges and a Results section with reference baseline figures.
+- Unit tests for the LR schedulers, checkpoint (de)serialization, device
+  resolution, and the results-table renderer.
+
+### Fixed
+- `RandomIdentitySampler.__len__` is now a stable, batch-aligned value computed
+  once at construction time; it was previously mutated during iteration, so
+  `len(dataloader)` could disagree across epochs.
+- README `make install` command now matches the Makefile (`uv sync --extra dev`).
+
 ### Planned
 - Publish trained checkpoint and populate the measured "strong baseline" results row.
 - Optional IBN-Net backbone weights and a cross-dataset (Market → DukeMTMC / MSMT17)
