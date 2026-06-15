@@ -1,0 +1,67 @@
+# Keep the Docker build context small and reproducible.
+
+# Version control
+.git/
+.gitignore
+.gitattributes
+
+# Python caches and build artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Tooling caches
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+
+# Datasets, weights, and outputs (mounted or downloaded at runtime).
+# Anchored with a leading "/" so they never exclude the ``src/reid/data/``
+# source package from the build context.
+/data/
+/datasets/
+Market-1501*/
+/outputs/
+/runs/
+/logs/
+*.pth
+*.pt
+*.ckpt
+*.onnx
+kagglehub/
+.kaggle/
+
+# Notebooks and large research artifacts
+*.ipynb
+.ipynb_checkpoints/
+
+# Local environment / secrets
+.env
+.env.local
+*.env
+!.env.example
+
+# Editor / OS noise
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# CI / docs not needed at runtime
+.github/
+docs/
+*.md
+!README.md

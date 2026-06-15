@@ -1,0 +1,107 @@
+name: CI
+
+# Continuous integration for person-reid-market1501.
+#
+# Runs on every push and pull request targeting ``main``:
+#   * ``lint``  -> ruff lint + format check (single Python version, fast).
+#   * ``test``  -> pytest on a CPU-only matrix of Python 3.10 / 3.11 / 3.12.
+#   * ``typecheck`` -> mypy (non-blocking; informational only).
+#
+# Dependencies are installed with `uv` (astral-sh/setup-uv) for fast, cached
+# installs. CPU-only PyTorch wheels are pulled from the official PyTorch CPU
+# index via ``UV_TORCH_BACKEND`` to keep the runners small and quick.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel superseded runs on the same ref to save CI minutes.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Install CPU-only torch/torchvision wheels. uv understands this hint and
+  # rewrites the index for the torch family automatically.
+  UV_TORCH_BACKEND: cpu
+
+jobs:
+  lint:
+    name: Lint and format
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Ruff lint
+        run: uv run ruff check .
+
+      - name: Ruff format check
+        run: uv run ruff format --check .
+
+  test:
+    name: Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
+
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: uv sync --extra dev --python ${{ matrix.python-version }}
+
+      - name: Run tests
+        run: uv run --python ${{ matrix.python-version }} pytest -q
+
+  typecheck:
+    name: Type check (mypy, non-blocking)
+    runs-on: ubuntu-latest
+    # Informational only: failures here do not fail the workflow.
+    continue-on-error: true
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Run mypy
+        run: uv run mypy src/reid

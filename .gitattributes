@@ -1,0 +1,35 @@
+# Normalize all text files to LF in the repository and on checkout, so the
+# codebase is byte-identical across Linux, macOS, and Windows contributors.
+* text=auto eol=lf
+
+# Explicit handling for the source / config / docs we ship.
+*.py     text eol=lf
+*.pyi    text eol=lf
+*.toml   text eol=lf
+*.cfg    text eol=lf
+*.ini    text eol=lf
+*.yaml   text eol=lf
+*.yml    text eol=lf
+*.json   text eol=lf
+*.md     text eol=lf
+*.txt    text eol=lf
+*.cff    text eol=lf
+*.sh     text eol=lf
+Makefile text eol=lf
+Dockerfile text eol=lf
+*.ipynb  text eol=lf
+
+# Binary assets — never normalize or diff as text.
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.ico    binary
+*.pth    binary
+*.pt     binary
+*.ckpt   binary
+*.onnx   binary
+
+# Collapse generated/large artifacts in GitHub diffs and language stats.
+*.ipynb        linguist-documentation
+docs/images/*  linguist-documentation

@@ -1,0 +1,76 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "person-reid-market1501: A Strong Baseline for Person Re-Identification on Market-1501"
+abstract: >-
+  A production-grade, configurable Person Re-Identification system for the
+  Market-1501 dataset. Implements a ResNet50 + BNNeck strong baseline with
+  batch-hard triplet loss, an identity-balanced PK sampler, GeM pooling,
+  label-smoothing cross-entropy, LR warmup, AMP mixed precision, cosine
+  feature retrieval, k-reciprocal re-ranking, and Grad-CAM explainability.
+type: software
+version: 0.1.0
+date-released: 2026-06-14
+license: MIT
+repository-code: "https://github.com/vardhjain/person-reid-market1501"
+url: "https://github.com/vardhjain/person-reid-market1501"
+keywords:
+  - person-re-identification
+  - re-id
+  - market-1501
+  - metric-learning
+  - triplet-loss
+  - bnneck
+  - pytorch
+  - computer-vision
+  - re-ranking
+authors:
+  - family-names: Jain
+    given-names: Vardh
+    email: vardhjain20@gmail.com
+    alias: vardhjain
+references:
+  - type: article
+    title: "Bag of Tricks and a Strong Baseline for Deep Person Re-Identification"
+    authors:
+      - family-names: Luo
+        given-names: Hao
+      - family-names: Gu
+        given-names: Youzhi
+      - family-names: Liao
+        given-names: Xingyu
+      - family-names: Lai
+        given-names: Shenqi
+      - family-names: Jiang
+        given-names: Wei
+    year: 2019
+    collection-title: "IEEE/CVF Conference on Computer Vision and Pattern Recognition Workshops (CVPRW)"
+  - type: conference-paper
+    title: "Scalable Person Re-identification: A Benchmark"
+    authors:
+      - family-names: Zheng
+        given-names: Liang
+      - family-names: Shen
+        given-names: Liyue
+      - family-names: Tian
+        given-names: Lu
+      - family-names: Wang
+        given-names: Shengjin
+      - family-names: Wang
+        given-names: Jingdong
+      - family-names: Tian
+        given-names: Qi
+    year: 2015
+    collection-title: "IEEE International Conference on Computer Vision (ICCV)"
+  - type: conference-paper
+    title: "Re-ranking Person Re-identification with k-reciprocal Encoding"
+    authors:
+      - family-names: Zhong
+        given-names: Zhun
+      - family-names: Zheng
+        given-names: Liang
+      - family-names: Cao
+        given-names: Donglin
+      - family-names: Li
+        given-names: Shaozi
+    year: 2017
+    collection-title: "IEEE Conference on Computer Vision and Pattern Recognition (CVPR)"
