@@ -11,6 +11,7 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import torch
 from torch.utils.data import DataLoader
 
 from reid.data.dataset import Market1501
@@ -69,12 +70,17 @@ def build_dataloaders(cfg: Config, root: str | Path) -> dict[str, Any]:
         num_instances=data_cfg.num_instances,
     )
 
+    # Pin memory only when a CUDA device is actually present. Derive it from the
+    # real runtime (not cfg.train.device, which resolve_device may downgrade to
+    # CPU), keeping host->GPU copies fast while silencing the CPU-only warning.
+    pin = torch.cuda.is_available()
+
     train_loader = DataLoader(
         train_set,
         batch_size=data_cfg.batch_size,
         sampler=train_sampler,
         num_workers=data_cfg.num_workers,
-        pin_memory=True,
+        pin_memory=pin,
         drop_last=True,
     )
 
@@ -83,7 +89,7 @@ def build_dataloaders(cfg: Config, root: str | Path) -> dict[str, Any]:
         batch_size=data_cfg.batch_size,
         shuffle=False,
         num_workers=data_cfg.num_workers,
-        pin_memory=True,
+        pin_memory=pin,
         drop_last=False,
     )
 
@@ -92,7 +98,7 @@ def build_dataloaders(cfg: Config, root: str | Path) -> dict[str, Any]:
         batch_size=data_cfg.batch_size,
         shuffle=False,
         num_workers=data_cfg.num_workers,
-        pin_memory=True,
+        pin_memory=pin,
         drop_last=False,
     )
 
