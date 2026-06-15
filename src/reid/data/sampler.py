@@ -74,13 +74,16 @@ class RandomIdentitySampler(Sampler[int]):
             self.index_dic[label].append(index)
         self.labels: list[int] = list(self.index_dic.keys())
 
-        # Estimate the epoch length: number of full PK batches that can be
-        # formed, accounting for oversampling of short identities.
-        self.length = 0
-        for label in self.labels:
-            num = len(self.index_dic[label])
-            num = max(num, self.num_instances)
-            self.length += num - (num % self.num_instances)
+        # Epoch length = number of complete PK batches the sampler can form,
+        # times the batch size. Each identity contributes ``floor(n / K)`` full
+        # K-sized groups (short identities are oversampled up to one group), and
+        # every batch consumes ``num_pids_per_batch`` groups. Computed once here
+        # so ``len()`` is stable across epochs and aligned to ``batch_size``.
+        total_groups = sum(
+            max(len(idxs), self.num_instances) // self.num_instances
+            for idxs in self.index_dic.values()
+        )
+        self.length = (total_groups // self.num_pids_per_batch) * self.batch_size
 
     def __iter__(self) -> Iterator[int]:
         """Yield a flat sequence of indices forming ``P * K`` batches.
@@ -114,9 +117,13 @@ class RandomIdentitySampler(Sampler[int]):
                 if len(batch_idxs_dict[label]) == 0:
                     avail_labels.remove(label)
 
-        self.length = len(final_idxs)
         return iter(final_idxs)
 
     def __len__(self) -> int:
-        """Return the estimated number of indices produced per epoch."""
+        """Return the number of indices produced per epoch.
+
+        Equal to the number of complete ``P * K`` batches that can be formed
+        multiplied by ``batch_size`` — a stable, batch-aligned value computed
+        once at construction time (never mutated during iteration).
+        """
         return self.length
