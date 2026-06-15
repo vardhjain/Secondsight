@@ -105,3 +105,35 @@ jobs:
 
       - name: Run mypy
         run: uv run mypy src/reid
+
+  build:
+    name: Build distribution
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Build sdist and wheel
+        run: uv build
+
+      - name: Verify the wheel installs and imports cleanly
+        run: |
+          uv venv /tmp/build-check
+          uv pip install --python /tmp/build-check dist/*.whl
+          /tmp/build-check/bin/python -c "import reid; print('reid', reid.__version__)"
+
+      - name: Upload distribution artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/*
+          if-no-files-found: error
