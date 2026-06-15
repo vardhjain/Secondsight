@@ -277,6 +277,11 @@ class Trainer:
         """
         assert self.evaluator is not None
         self.model.eval()
+        # Drop cached features so each periodic eval re-extracts from the CURRENT
+        # weights. Without this the evaluator reuses the first eval's features
+        # (Evaluator._ensure_features early-returns on the cache), so mAP stays
+        # frozen and best-by-mAP locks best.pth to the earliest evaluated epoch.
+        self.evaluator.reset_cache()
         metrics = self.evaluator.evaluate(rerank=False)
         self.model.train()
 
