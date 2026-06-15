@@ -1,0 +1,34 @@
+# Docker Compose for person-reid-market1501.
+#
+# Brings up the interactive Gradio Re-ID demo, exposing it on host port 7860.
+# Datasets, weights, and outputs are mounted from the host so the image stays
+# lean and stateless.
+#
+# Usage:
+#   docker compose up --build
+# then open http://localhost:7860
+#
+# Provide a trained checkpoint by placing it at ./outputs/best.pth (the default
+# REID_WEIGHTS path) or by overriding REID_WEIGHTS in a local .env file.
+
+services:
+  demo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: person-reid-market1501:latest
+    container_name: reid-demo
+    ports:
+      - "7860:7860"
+    environment:
+      # Override these via a local .env file if your layout differs.
+      REID_WEIGHTS: ${REID_WEIGHTS:-/app/outputs/best.pth}
+      REID_DATA_ROOT: ${REID_DATA_ROOT:-/app/data}
+      GRADIO_SERVER_NAME: "0.0.0.0"
+      GRADIO_SERVER_PORT: "7860"
+    volumes:
+      # Trained weights and run artifacts (best.pth, last.pth, logs).
+      - ./outputs:/app/outputs
+      # Optional: mount the Market-1501 dataset for gallery browsing.
+      - ./data:/app/data
+    restart: unless-stopped
