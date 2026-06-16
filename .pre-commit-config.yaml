@@ -1,4 +1,4 @@
-# Pre-commit hooks for the person-reid-market1501 project.
+# Pre-commit hooks for the secondsight project.
 # Install with: pre-commit install
 # Run on all files with: pre-commit run --all-files
 default_language_version:

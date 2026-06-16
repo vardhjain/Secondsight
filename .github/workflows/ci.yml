@@ -1,6 +1,6 @@
 name: CI
 
-# Continuous integration for person-reid-market1501.
+# Continuous integration for secondsight.
 #
 # Runs on every push and pull request targeting ``main``:
 #   * ``lint``  -> ruff lint + format check (single Python version, fast).

@@ -1,19 +1,19 @@
 # syntax=docker/dockerfile:1
 
 # ---------------------------------------------------------------------------
-# Dockerfile for person-reid-market1501.
+# Dockerfile for secondsight.
 #
 # Builds a lean image that launches the interactive Gradio Re-ID demo. The
 # build context is kept small by .dockerignore (data, outputs, weights, and
 # notebooks are excluded and mounted at runtime instead).
 #
 # Build:
-#   docker build -t person-reid-market1501 .
+#   docker build -t secondsight .
 #
 # Run the demo (CPU):
 #   docker run --rm -p 7860:7860 \
 #       -v "$(pwd)/outputs:/app/outputs" \
-#       person-reid-market1501
+#       secondsight
 # ---------------------------------------------------------------------------
 FROM python:3.11-slim AS base
 

@@ -1,5 +1,5 @@
 <!--
-Thanks for contributing to person-reid-market1501!
+Thanks for contributing to secondsight!
 Please fill out the sections below so reviewers can evaluate your change quickly.
 -->
 

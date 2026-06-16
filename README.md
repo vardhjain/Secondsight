@@ -1,6 +1,6 @@
-# person-reid-market1501
+# secondsight
 
-[![CI](https://github.com/vardhjain/person-reid-market1501/actions/workflows/ci.yml/badge.svg)](https://github.com/vardhjain/person-reid-market1501/actions/workflows/ci.yml)
+[![CI](https://github.com/vardhjain/secondsight/actions/workflows/ci.yml/badge.svg)](https://github.com/vardhjain/secondsight/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.2%2B-ee4c2c.svg)](https://pytorch.org/)
@@ -121,7 +121,7 @@ baseline by Luo et al. (*Bag of Tricks*, CVPRW 2019) for context — these are
 
 Training takes roughly 40 minutes on a single modern GPU.
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/vardhjain/person-reid-market1501/blob/main/notebooks/train_colab.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/vardhjain/secondsight/blob/main/notebooks/train_colab.ipynb)
 
 Or run it locally, end to end:
 
@@ -151,7 +151,7 @@ and skip cleanly when `torchvision` is not installed.
 ## Docker
 
 ```bash
-make docker-build     # docker build -t person-reid-market1501 .
+make docker-build     # docker build -t secondsight .
 make docker-run       # runs the Gradio demo on :7860, mounts ./outputs
 ```
 

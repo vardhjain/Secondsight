@@ -1,1 +1,1 @@
-"""Command-line entry-point scripts for person-reid-market1501."""
+"""Command-line entry-point scripts for secondsight."""
