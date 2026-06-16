@@ -12,7 +12,7 @@ A clear and concise description of what the bug is.
 
 ## To reproduce
 
-Steps to reproduce the behaviour:
+List the steps that reproduce the behaviour.
 
 1. Command run (e.g. `uv run reid-train --config configs/default.yaml ...`)
 2. Configuration / flags used
