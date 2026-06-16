@@ -155,6 +155,11 @@ make docker-build     # docker build -t secondsight .
 make docker-run       # runs the Gradio demo on :7860, mounts ./outputs
 ```
 
+## Model card
+
+See [`docs/MODEL_CARD.md`](docs/MODEL_CARD.md) for intended use, training data,
+the evaluation protocol, limitations, and ethical considerations.
+
 ## Citation
 
 If you use this software, please cite it using the metadata in

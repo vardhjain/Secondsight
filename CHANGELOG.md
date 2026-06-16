@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README status badges and a Results section with reference baseline figures.
 - Unit tests for the LR schedulers, checkpoint (de)serialization, device
   resolution, and the results-table renderer.
+- Model card (`docs/MODEL_CARD.md`) covering intended use, data, metrics,
+  limitations, and ethical considerations.
 
 ### Fixed
 - `RandomIdentitySampler.__len__` is now a stable, batch-aligned value computed
