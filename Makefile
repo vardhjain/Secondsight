@@ -1,4 +1,4 @@
-# Makefile for person-reid-market1501.
+# Makefile for secondsight.
 #
 # Uses `uv` (https://github.com/astral-sh/uv) as the package manager / runner.
 # Override any variable on the command line, e.g.:
@@ -21,7 +21,7 @@ DATA_ROOT ?=
 WEIGHTS ?= outputs/best.pth
 OUTPUT_DIR ?= outputs
 DEVICE ?= cuda
-IMAGE ?= person-reid-market1501:latest
+IMAGE ?= secondsight:latest
 
 .DEFAULT_GOAL := help
 .PHONY: help install install-dev sync lint format format-check typecheck test test-cov \

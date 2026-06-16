@@ -1,4 +1,4 @@
-# Docker Compose for person-reid-market1501.
+# Docker Compose for secondsight.
 #
 # Brings up the interactive Gradio Re-ID demo, exposing it on host port 7860.
 # Datasets, weights, and outputs are mounted from the host so the image stays
@@ -16,7 +16,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: person-reid-market1501:latest
+    image: secondsight:latest
     container_name: reid-demo
     ports:
       - "7860:7860"
