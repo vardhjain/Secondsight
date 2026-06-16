@@ -52,14 +52,14 @@ make test          # pytest
 ## Conventions
 
 - **Style:** keep modules small and single-purpose; prefer pure functions and
-  dependency injection over globals. No `print` inside the library — use the
+  dependency injection over globals. Avoid `print` inside the library, and use the
   `logging` module (`reid.utils.logging.setup_logger`).
 - **Lazy heavy imports:** importing the top-level `reid` package (and the
   numpy-only `reid.evaluation.metrics`) must never require `torchvision`,
   `cv2`, `gradio`, or `kagglehub`. Import heavy optional deps inside the
   submodule/function that needs them.
 - **Configuration:** new knobs go through `reid.config` dataclasses and the YAML
-  files — avoid hardcoded constants in the training/eval paths.
+  files, never as hardcoded constants in the training/eval paths.
 - **Commits:** clear, imperative subject lines (e.g. "Add cosine scheduler").
   [Conventional Commits](https://www.conventionalcommits.org/) prefixes
   (`feat:`, `fix:`, `docs:`, …) are welcome but not required.

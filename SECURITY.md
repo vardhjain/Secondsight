@@ -15,14 +15,14 @@ latest release on the `main` branch only.
 Please **do not** report security vulnerabilities through public GitHub issues,
 pull requests, or discussions.
 
-Instead, use one of the following private channels:
+Instead, please report it privately through one of the two channels below.
 
-1. **GitHub Security Advisories** (preferred) — open a private report via the
-   repository's **Security** tab → **Report a vulnerability**.
-2. **Email** — contact the maintainer at **vardhjain20@gmail.com** with the
+1. **GitHub Security Advisories** (preferred). Open a private report from the
+   repository's **Security** tab using **Report a vulnerability**.
+2. **Email**. Write to the maintainer at **vardhjain20@gmail.com** with the
    subject line `SECURITY: Secondsight`.
 
-When reporting, please include as much of the following as possible:
+When you report an issue, please include as much of the following as you can.
 
 - A description of the issue and its potential impact.
 - Steps to reproduce (a minimal proof of concept is ideal).

@@ -1,4 +1,4 @@
-# Model Card — Secondsight
+# Model Card for Secondsight
 
 This card follows the spirit of Mitchell et al., *Model Cards for Model
 Reporting* (2019). It documents a person re-identification (Re-ID) embedding
@@ -6,7 +6,7 @@ model intended for **research, education, and portfolio demonstration**.
 
 ## Model details
 
-- **Model:** ResNet-50 + BNNeck person re-identification network — the "strong
+- **Model:** ResNet-50 + BNNeck person re-identification network, the "strong
   baseline" of Luo et al., *Bag of Tricks and a Strong Baseline for Deep Person
   Re-Identification* (CVPRW 2019).
 - **Version:** 0.1.0
@@ -45,10 +45,11 @@ a biometric identification system and must not be used as one.
 
 ## Training data
 
-- **Dataset:** Market-1501 (Zheng et al., 2015) — 1,501 identities recorded by 6
-  cameras outside a university supermarket. Splits: 12,936 train images / 751
-  identities; 3,368 query and 15,913 gallery images / 750 test identities; plus
-  junk/distractor crops from an automatic person detector.
+- **Dataset:** Market-1501 (Zheng et al., 2015), which holds 1,501 identities
+  recorded by 6 cameras outside a university supermarket. It provides 12,936
+  training images across 751 identities, together with 3,368 query and 15,913
+  gallery images across 750 test identities, plus junk and distractor crops from
+  an automatic person detector.
 - **Known biases:** a single site, season, and camera rig; limited demographic
   and geographic diversity; fixed viewpoints and heights. Models trained on it
   generalize poorly across domains without adaptation.
@@ -97,15 +98,12 @@ a biometric identification system and must not be used as one.
 
 Person re-identification is dual-use and surveillance-adjacent. Misuse can enable
 non-consensual tracking and can disproportionately harm marginalized groups,
-particularly given the unmeasured demographic performance above. If you build on
-this work, you should:
-
-- use it only with informed consent and a lawful basis;
-- never make it the sole basis for a decision about a person, and keep a human in
-  the loop;
-- audit for demographic disparity on representative data before any real use;
-- comply with applicable privacy / biometric-data law (e.g. GDPR and equivalent
-  statutes).
+particularly given the unmeasured demographic performance above. Anyone building
+on this work should use it only with informed consent and a lawful basis, should
+never make it the sole basis for a decision about a person and should always keep
+a human in the loop, should audit for demographic disparity on representative
+data before any real use, and should comply with applicable privacy and
+biometric-data law such as the GDPR and its equivalents.
 
 The bundled demo binds to `localhost` by default, ships no trained weights, and
 supports optional authentication (`--auth`) for any networked deployment.

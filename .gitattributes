@@ -19,7 +19,7 @@ Makefile text eol=lf
 Dockerfile text eol=lf
 *.ipynb  text eol=lf
 
-# Binary assets — never normalize or diff as text.
+# Binary assets. Never normalize or diff these as text.
 *.png    binary
 *.jpg    binary
 *.jpeg   binary

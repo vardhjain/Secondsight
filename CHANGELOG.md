@@ -11,9 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1) and `SECURITY.md`.
 - Colab training notebook (`notebooks/train_colab.ipynb`) for one-click GPU
   reproduction, linked from the README.
-- README status badges and a Results section with measured metrics — baseline
-  **85.0 mAP / 94.2 Rank-1**, and **93.7 mAP / 94.7 Rank-1** with k-reciprocal
-  re-ranking (ResNet-50 + BNNeck strong baseline, seed 42, 60 epochs).
+- README status badges and a Results section with measured metrics. The baseline
+  reaches **85.0 mAP / 94.2 Rank-1**, rising to **93.7 mAP / 94.7 Rank-1** with
+  k-reciprocal re-ranking (ResNet-50 + BNNeck strong baseline, seed 42, 60 epochs).
 - Unit tests for the LR schedulers, checkpoint (de)serialization, device
   resolution, and the results-table renderer.
 - Model card (`docs/MODEL_CARD.md`) covering intended use, data, metrics,

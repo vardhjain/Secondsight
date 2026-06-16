@@ -123,7 +123,7 @@ class RandomIdentitySampler(Sampler[int]):
         """Return the number of indices produced per epoch.
 
         Equal to the number of complete ``P * K`` batches that can be formed
-        multiplied by ``batch_size`` — a stable, batch-aligned value computed
+        multiplied by ``batch_size``. This is a stable, batch-aligned value computed
         once at construction time (never mutated during iteration).
         """
         return self.length

@@ -8,7 +8,7 @@ giving an interpretable view of *where* the network "looks" when computing a
 person's embedding.
 
 For Re-ID there is no single classification logit to back-propagate from at
-inference time (the model returns an embedding), so — following the notebook —
+inference time (the model returns an embedding), so, following the notebook,
 the scalar used to seed the backward pass is the sum of the output feature
 activations. This produces a class-agnostic saliency map over the embedding.
 
