@@ -1,6 +1,6 @@
-# secondsight
+# Secondsight
 
-[![CI](https://github.com/vardhjain/secondsight/actions/workflows/ci.yml/badge.svg)](https://github.com/vardhjain/secondsight/actions/workflows/ci.yml)
+[![CI](https://github.com/vardhjain/Secondsight/actions/workflows/ci.yml/badge.svg)](https://github.com/vardhjain/Secondsight/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.2%2B-ee4c2c.svg)](https://pytorch.org/)
@@ -120,7 +120,7 @@ CVPRW 2019) — this run lands right on it.
 
 Training takes roughly 40 minutes on a single modern GPU.
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/vardhjain/secondsight/blob/main/notebooks/train_colab.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/vardhjain/Secondsight/blob/main/notebooks/train_colab.ipynb)
 
 Or run it locally, end to end:
 

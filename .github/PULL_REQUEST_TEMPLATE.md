@@ -1,5 +1,5 @@
 <!--
-Thanks for contributing to secondsight!
+Thanks for contributing to Secondsight!
 Please fill out the sections below so reviewers can evaluate your change quickly.
 -->
 

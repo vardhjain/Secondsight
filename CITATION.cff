@@ -1,6 +1,6 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
-title: "secondsight: A Strong Baseline for Person Re-Identification on Market-1501"
+title: "Secondsight: A Strong Baseline for Person Re-Identification on Market-1501"
 abstract: >-
   A production-grade, configurable Person Re-Identification system for the
   Market-1501 dataset. Implements a ResNet50 + BNNeck strong baseline with
@@ -11,8 +11,8 @@ type: software
 version: 0.1.0
 date-released: 2026-06-14
 license: MIT
-repository-code: "https://github.com/vardhjain/secondsight"
-url: "https://github.com/vardhjain/secondsight"
+repository-code: "https://github.com/vardhjain/Secondsight"
+url: "https://github.com/vardhjain/Secondsight"
 keywords:
   - person-re-identification
   - re-id

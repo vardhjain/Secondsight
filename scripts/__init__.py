@@ -1,1 +1,1 @@
-"""Command-line entry-point scripts for secondsight."""
+"""Command-line entry-point scripts for Secondsight."""

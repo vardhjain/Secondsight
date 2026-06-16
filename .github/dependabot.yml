@@ -1,4 +1,4 @@
-# Dependabot configuration for secondsight.
+# Dependabot configuration for Secondsight.
 #
 # Keeps Python dependencies (declared in pyproject.toml) and GitHub Actions
 # pinned in the workflows up to date with weekly pull requests.

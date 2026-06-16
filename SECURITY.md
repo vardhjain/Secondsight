@@ -20,7 +20,7 @@ Instead, use one of the following private channels:
 1. **GitHub Security Advisories** (preferred) — open a private report via the
    repository's **Security** tab → **Report a vulnerability**.
 2. **Email** — contact the maintainer at **vardhjain20@gmail.com** with the
-   subject line `SECURITY: secondsight`.
+   subject line `SECURITY: Secondsight`.
 
 When reporting, please include as much of the following as possible:
 

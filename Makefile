@@ -1,4 +1,4 @@
-# Makefile for secondsight.
+# Makefile for Secondsight.
 #
 # Uses `uv` (https://github.com/astral-sh/uv) as the package manager / runner.
 # Override any variable on the command line, e.g.:

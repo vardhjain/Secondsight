@@ -1,4 +1,4 @@
-# Docker Compose for secondsight.
+# Docker Compose for Secondsight.
 #
 # Brings up the interactive Gradio Re-ID demo, exposing it on host port 7860.
 # Datasets, weights, and outputs are mounted from the host so the image stays

@@ -67,5 +67,5 @@ installable Python package with tests, CI/CD, Docker, a Gradio demo, and docs.
   CI (ruff + pytest, Python 3.10–3.12), Dockerfile, docker-compose, pre-commit,
   and project documentation.
 
-[Unreleased]: https://github.com/vardhjain/secondsight/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/vardhjain/secondsight/releases/tag/v0.1.0
+[Unreleased]: https://github.com/vardhjain/Secondsight/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/vardhjain/Secondsight/releases/tag/v0.1.0

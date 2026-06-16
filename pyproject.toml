@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "secondsight"
+name = "Secondsight"
 dynamic = ["version"]
 description = "Production-grade Person Re-Identification (Re-ID) on the Market-1501 dataset."
 readme = "README.md"
@@ -61,10 +61,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/vardhjain/secondsight"
-Repository = "https://github.com/vardhjain/secondsight"
-Issues = "https://github.com/vardhjain/secondsight/issues"
-Documentation = "https://github.com/vardhjain/secondsight/blob/main/README.md"
+Homepage = "https://github.com/vardhjain/Secondsight"
+Repository = "https://github.com/vardhjain/Secondsight"
+Issues = "https://github.com/vardhjain/Secondsight/issues"
+Documentation = "https://github.com/vardhjain/Secondsight/blob/main/README.md"
 
 [project.scripts]
 reid-download = "scripts.download_data:main"

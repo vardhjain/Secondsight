@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for your interest in improving **secondsight**! This document
+Thanks for your interest in improving **Secondsight**! This document
 explains how to set up a development environment and the conventions the project
 follows.
 
@@ -11,8 +11,8 @@ for environment and dependency management.
 
 ```bash
 # 1. Clone
-git clone https://github.com/vardhjain/secondsight.git
-cd secondsight
+git clone https://github.com/vardhjain/Secondsight.git
+cd Secondsight
 
 # 2. Create the environment and install the package + dev tools (editable)
 uv sync --extra dev          # or: make install

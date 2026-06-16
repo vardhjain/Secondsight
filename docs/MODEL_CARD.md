@@ -1,4 +1,4 @@
-# Model Card — secondsight
+# Model Card — Secondsight
 
 This card follows the spirit of Mitchell et al., *Model Cards for Model
 Reporting* (2019). It documents a person re-identification (Re-ID) embedding

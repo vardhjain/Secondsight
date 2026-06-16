@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ---------------------------------------------------------------------------
-# Dockerfile for secondsight.
+# Dockerfile for Secondsight.
 #
 # Builds a lean image that launches the interactive Gradio Re-ID demo. The
 # build context is kept small by .dockerignore (data, outputs, weights, and

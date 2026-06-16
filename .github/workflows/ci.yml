@@ -1,6 +1,6 @@
 name: CI
 
-# Continuous integration for secondsight.
+# Continuous integration for Secondsight.
 #
 # Runs on every push and pull request targeting ``main``:
 #   * ``lint``  -> ruff lint + format check (single Python version, fast).
