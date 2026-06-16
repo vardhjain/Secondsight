@@ -47,8 +47,11 @@ def test_sampler_length_is_multiple_of_batch_size(fake_market_root: Path) -> Non
     indices = list(iter(sampler))
     assert len(indices) > 0
     assert len(indices) % BATCH_SIZE == 0
-    # __len__ stays consistent with the most recent iteration.
-    assert len(sampler) == len(indices)
+    # ``__len__`` is a stable, batch-aligned estimate fixed at construction time.
+    # Under random identity selection the PK sampler can strand a few groups, so
+    # the yielded count is at most ``len(sampler)`` (and never exceeds it).
+    assert len(sampler) % BATCH_SIZE == 0
+    assert len(indices) <= len(sampler)
 
 
 def test_sampler_batches_have_correct_pk_structure(fake_market_root: Path) -> None:
