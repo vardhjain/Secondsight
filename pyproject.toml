@@ -92,7 +92,7 @@ include = [
 line-length = 100
 target-version = "py310"
 src = ["src", "scripts", "tests", "app"]
-extend-exclude = ["notebooks", "*.ipynb"]
+extend-exclude = ["notebooks", "*.ipynb", "space"]
 
 [tool.ruff.lint]
 select = [

@@ -1,0 +1,8 @@
+# CPU-only PyTorch keeps the Space image small. Pip pulls the CPU wheels from
+# the PyTorch index below, then installs the Secondsight package from GitHub,
+# which provides the importable `reid` library used by app.py.
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch>=2.2
+torchvision>=0.17
+gradio==4.44.1
+secondsight @ git+https://github.com/vardhjain/Secondsight.git@main
