@@ -90,11 +90,19 @@ def compare(person_a: Image.Image | None, person_b: Image.Image | None) -> str:
 
 
 _DESCRIPTION = (
-    "Upload two cropped photos of people. Secondsight encodes each one with a "
+    "Upload two cropped photos of people, or click an example below. Secondsight encodes each one with a "
     "ResNet-50 + BNNeck network trained on Market-1501 and reports how similar "
     "their embeddings are under cosine distance. A higher score means the two "
     "crops are more likely to be the same person seen on a different camera."
 )
+
+# Optional example pairs. Drop image files into an `examples/` folder at the Space
+# root; they are sorted by name and paired consecutively (first with second, third
+# with fourth, and so on), giving visitors one-click demos without uploading.
+_EX_DIR = Path("examples")
+_EX_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
+_ex_imgs = sorted(str(p) for p in _EX_DIR.iterdir() if p.suffix.lower() in _EX_EXTS) if _EX_DIR.is_dir() else []
+_EXAMPLES = [_ex_imgs[i : i + 2] for i in range(0, len(_ex_imgs) - 1, 2)] or None
 
 demo = gr.Interface(
     fn=compare,
@@ -105,6 +113,8 @@ demo = gr.Interface(
     outputs=gr.Textbox(label="Result", lines=5),
     title="Secondsight: cross-camera person re-identification",
     description=_DESCRIPTION,
+    examples=_EXAMPLES,
+    cache_examples=False,
 )
 
 if __name__ == "__main__":
