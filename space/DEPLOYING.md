@@ -36,6 +36,17 @@ Set the Space URL as the homepage in the GitHub repository's About section, the
 same place the description and topics already live. That mirrors how the
 reference repository links its own live demo.
 
+## Sample images for the demo button
+
+The demo shows clickable example pairs whenever an `examples/` folder is present
+at the Space root. Drop a few small person crops into `examples/`. They are
+sorted by name and paired consecutively, so the first two images form one
+example, the next two form another, and so on. For a clear demo, make one pair
+two crops of the same person from different cameras, and another pair two
+different people. Name them so the pairs sort together, for instance `a1.jpg`,
+`a2.jpg`, `b1.jpg`, `b2.jpg`. The app still runs normally when the folder is
+absent.
+
 ## Notes
 
 If the build runs out of disk because the default PyTorch wheel is large,
