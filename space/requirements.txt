@@ -4,8 +4,5 @@
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch>=2.2
 torchvision>=0.17
-gradio==4.44.1
-# gradio 4.44.1 imports HfFolder, which newer huggingface_hub releases removed,
-# so pin huggingface_hub to a release that still provides it.
-huggingface_hub<0.26
+gradio==5.50.0
 secondsight @ git+https://github.com/vardhjain/Secondsight.git@main
