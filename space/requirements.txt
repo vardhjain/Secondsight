@@ -4,5 +4,5 @@
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch>=2.2
 torchvision>=0.17
-gradio==5.50.0
+gradio==6.19.0
 secondsight @ git+https://github.com/vardhjain/Secondsight.git@main
