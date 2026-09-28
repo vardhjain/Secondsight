@@ -61,8 +61,8 @@ def test_cosine_distance_range() -> None:
     y = torch.randn(8, 7)
     d = cosine_distance(x, y)
     assert d.shape == (6, 8)  # (num_x, num_y); 7 is the shared feature dim.
-    assert float(d.min()) >= -1e-6
-    assert float(d.max()) <= 2.0 + 1e-6
+    assert float(d.min()) >= 0.0
+    assert float(d.max()) <= 2.0
 
 
 def test_cosine_opposite_vectors_is_two() -> None:

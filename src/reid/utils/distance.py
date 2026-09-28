@@ -42,7 +42,8 @@ def cosine_distance(x: Tensor, y: Tensor) -> Tensor:
     """Compute the pairwise cosine distance matrix between ``x`` and ``y``.
 
     Cosine distance is defined as ``1 - cosine_similarity``. Inputs are
-    L2-normalized internally, so the result lies in ``[0, 2]``.
+    L2-normalized internally and the result is clamped to ``[0, 2]`` so that
+    floating-point error never pushes it outside that range.
 
     Args:
         x: Tensor of shape ``[M, D]``.
@@ -54,7 +55,7 @@ def cosine_distance(x: Tensor, y: Tensor) -> Tensor:
     x_norm = torch.nn.functional.normalize(x, p=2, dim=1)
     y_norm = torch.nn.functional.normalize(y, p=2, dim=1)
     sim = torch.matmul(x_norm, y_norm.t())
-    return 1.0 - sim
+    return (1.0 - sim).clamp(min=0.0, max=2.0)
 
 
 def compute_distance_matrix(x: Tensor, y: Tensor, metric: str = "euclidean") -> Tensor:

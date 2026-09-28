@@ -9,9 +9,10 @@ trivial same-camera matches), and then compute:
 * the Cumulative Matching Characteristic (CMC) curve, and
 * the Average Precision (AP), averaged across queries to give the mAP.
 
-The implementation depends only on NumPy so that it can run in lightweight
-environments without ``torch``/``torchvision`` installed. It is a cleaned-up
-port of the evaluation cell from the original research notebook.
+The module depends only on NumPy, and because the :mod:`reid.evaluation`
+package loads its submodules lazily, ``import reid.evaluation.metrics`` does not
+import ``torch``. It is a cleaned-up port of the evaluation cell from the
+original research notebook.
 """
 
 from __future__ import annotations
@@ -68,11 +69,10 @@ def _average_precision(raw_cmc: np.ndarray) -> float:
 
     ``raw_cmc`` must contain at least one positive (caller checks ``np.any``).
     """
-    num_rel = raw_cmc.sum()
-    tmp_cmc = raw_cmc.cumsum()
-    precision = [x / (rank + 1.0) for rank, x in enumerate(tmp_cmc)]
-    precision = np.asarray(precision) * raw_cmc
-    return float(precision.sum() / num_rel)
+    # The k-th true match (1-based) found at 0-based rank r has precision k / (r + 1).
+    hits = np.flatnonzero(raw_cmc)
+    ranks_found = np.arange(1, hits.size + 1, dtype=np.float64)
+    return float(np.mean(ranks_found / (hits + 1.0)))
 
 
 def compute_cmc_map(
@@ -90,6 +90,13 @@ def compute_cmc_map(
     Queries that have no valid gallery match after this filtering are skipped,
     matching the reference Market-1501 evaluation code.
 
+    AP is the non-interpolated average precision (the mean of the precision at
+    each true-match rank), as in Luo et al.'s reid-strong-baseline and in
+    torchreid. The official MATLAB devkit uses a trapezoidal variant that gives
+    slightly different mAP values. Junk images (pid ``-1``) are dropped when the
+    dataset is loaded (see :mod:`reid.data.dataset`), while distractors (pid
+    ``0``) remain in the gallery and count as negatives.
+
     Args:
         distmat: Distance matrix of shape ``(num_query, num_gallery)``; lower
             means more similar.
@@ -98,7 +105,8 @@ def compute_cmc_map(
         q_camids: Query camera ids, shape ``(num_query,)``.
         g_camids: Gallery camera ids, shape ``(num_gallery,)``.
         max_rank: Length of the returned CMC curve. It is clamped to the
-            number of gallery samples if the gallery is smaller.
+            number of gallery samples if the gallery is smaller. Must be at
+            least 1.
 
     Returns:
         A tuple ``(cmc, mAP)`` where ``cmc`` is a float array of length
@@ -106,6 +114,7 @@ def compute_cmc_map(
         mean Average Precision as a Python float.
 
     Raises:
+        ValueError: If ``max_rank`` is smaller than 1.
         RuntimeError: If no query has a valid gallery match (e.g. all queries
             are filtered out by the same-camera exclusion).
     """
@@ -114,6 +123,9 @@ def compute_cmc_map(
     g_pids = np.asarray(g_pids)
     q_camids = np.asarray(q_camids)
     g_camids = np.asarray(g_camids)
+
+    if max_rank < 1:
+        raise ValueError(f"max_rank must be >= 1, got {max_rank}")
 
     num_q, num_g = distmat.shape
     if num_g < max_rank:

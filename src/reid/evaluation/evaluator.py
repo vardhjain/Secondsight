@@ -2,14 +2,15 @@
 
 This module provides:
 
-* :func:`extract_features` -- run a trained model over a dataloader to produce
-  the L2-normalisable feature matrix together with the per-image person ids and
-  camera ids. It optionally averages the features of an image and its
-  horizontal flip (test-time augmentation) and L2-normalises the result so that
-  Euclidean distance becomes equivalent to cosine distance.
-* :class:`Evaluator` -- a thin orchestrator that extracts query/gallery
-  features once (caching them), builds the distance matrix, optionally applies
-  k-reciprocal re-ranking, and reports CMC/mAP metrics.
+The function :func:`extract_features` runs a trained model over a dataloader
+to produce the feature matrix together with the per-image person ids and camera
+ids. It optionally averages the features of an image and its horizontal flip
+(test-time augmentation) and L2-normalises the result so that Euclidean
+distance becomes equivalent to cosine distance.
+
+The class :class:`Evaluator` is a thin orchestrator that extracts query and
+gallery features once (caching them), builds the distance matrix, optionally
+applies k-reciprocal re-ranking, and reports CMC and mAP metrics.
 
 Only ``torch``/``numpy`` plus this package's lightweight utilities are needed at
 import time; ``torchvision`` is *not* imported here.
@@ -18,6 +19,7 @@ import time; ``torchvision`` is *not* imported here.
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -69,6 +71,9 @@ def extract_features(
         A tuple ``(features, pids, camids)`` where ``features`` is a CPU tensor
         of shape ``(num_images, feat_dim)`` and ``pids`` / ``camids`` are
         ``int64`` NumPy arrays of length ``num_images``.
+
+    Raises:
+        ValueError: If ``loader`` yields no batches.
     """
     model.eval()
     device = torch.device(device)
@@ -94,6 +99,8 @@ def extract_features(
         pids.extend(_to_int_list(batch_pids))
         camids.extend(_to_int_list(batch_camids))
 
+    if not features:
+        raise ValueError("The dataloader yielded no batches; cannot extract features.")
     feature_matrix = torch.cat(features, dim=0)
     pid_array = np.asarray(pids, dtype=np.int64)
     camid_array = np.asarray(camids, dtype=np.int64)
@@ -121,7 +128,7 @@ def _forward(model: nn.Module, images: Tensor) -> Tensor:
     return feats.float()
 
 
-def _to_int_list(values: object) -> list[int]:
+def _to_int_list(values: Tensor | np.ndarray | Iterable[int]) -> list[int]:
     """Convert a batch of ids (tensor / array / sequence) to a list of ints.
 
     Args:
@@ -131,8 +138,8 @@ def _to_int_list(values: object) -> list[int]:
         A plain Python ``list[int]``.
     """
     if isinstance(values, Tensor):
-        return values.detach().cpu().long().tolist()
-    return [int(v) for v in values]  # type: ignore[union-attr]
+        return [int(v) for v in values.detach().cpu().long().tolist()]
+    return [int(v) for v in values]
 
 
 class Evaluator:
@@ -240,55 +247,73 @@ class Evaluator:
             rerank = self.cfg.eval.rerank
 
         self._ensure_features()
-        assert self._qf is not None and self._gf is not None  # noqa: S101
+        qf, gf = self._qf, self._gf
+        q_pids, g_pids = self._q_pids, self._g_pids
+        q_camids, g_camids = self._q_camids, self._g_camids
+        if (
+            qf is None
+            or gf is None
+            or q_pids is None
+            or g_pids is None
+            or q_camids is None
+            or g_camids is None
+        ):
+            raise RuntimeError("Feature extraction did not populate the evaluator cache.")
 
         max_rank = self.cfg.eval.max_rank
+        if max_rank < 1:
+            raise ValueError(f"cfg.eval.max_rank must be >= 1, got {max_rank}")
 
         logger.info("Computing distance matrix and base metrics...")
-        distmat = compute_distance_matrix(self._qf, self._gf, metric="euclidean")
-        distmat_np = distmat.cpu().numpy()
+        distmat = compute_distance_matrix(qf, gf, metric="euclidean")
         cmc, mean_ap = compute_cmc_map(
-            distmat_np,
-            self._q_pids,
-            self._g_pids,
-            self._q_camids,
-            self._g_camids,
-            max_rank=max_rank,
+            distmat.cpu().numpy(), q_pids, g_pids, q_camids, g_camids, max_rank=max_rank
         )
-
-        results: dict[str, object] = {
-            "mAP": float(mean_ap),
-            "rank1": float(cmc[0]),
-            "rank5": float(cmc[4]) if len(cmc) > 4 else float(cmc[-1]),
-            "rank10": float(cmc[9]) if len(cmc) > 9 else float(cmc[-1]),
-            "cmc": cmc,
-        }
+        results: dict[str, object] = _summarise(cmc, mean_ap, prefix="")
 
         if rerank:
             logger.info("Running k-reciprocal re-ranking...")
             rr_distmat = re_ranking(
-                self._qf,
-                self._gf,
+                qf,
+                gf,
                 k1=self.cfg.eval.rerank_k1,
                 k2=self.cfg.eval.rerank_k2,
                 lambda_value=self.cfg.eval.rerank_lambda,
             )
             rr_cmc, rr_map = compute_cmc_map(
-                rr_distmat,
-                self._q_pids,
-                self._g_pids,
-                self._q_camids,
-                self._g_camids,
-                max_rank=max_rank,
+                rr_distmat, q_pids, g_pids, q_camids, g_camids, max_rank=max_rank
             )
-            results.update(
-                {
-                    "rerank_mAP": float(rr_map),
-                    "rerank_rank1": float(rr_cmc[0]),
-                    "rerank_rank5": float(rr_cmc[4]) if len(rr_cmc) > 4 else float(rr_cmc[-1]),
-                    "rerank_rank10": float(rr_cmc[9]) if len(rr_cmc) > 9 else float(rr_cmc[-1]),
-                    "rerank_cmc": rr_cmc,
-                }
-            )
+            results.update(_summarise(rr_cmc, rr_map, prefix="rerank_"))
 
         return results
+
+
+def _summarise(cmc: np.ndarray, mean_ap: float, prefix: str) -> dict[str, object]:
+    """Build the metrics dict for one CMC curve, with keys prefixed by ``prefix``.
+
+    When the CMC curve is shorter than 10 (because :func:`compute_cmc_map`
+    clamped ``max_rank`` to a gallery smaller than 10, or a small ``max_rank``
+    was configured), Rank-5 and Rank-10 fall back to the last CMC value. For a
+    clamped curve this is exact, because every query has already been scored
+    against the whole gallery, so the CMC cannot rise beyond its final value.
+
+    Args:
+        cmc: CMC curve as returned by :func:`compute_cmc_map`.
+        mean_ap: Mean average precision.
+        prefix: Key prefix, either ``""`` or ``"rerank_"``.
+
+    Returns:
+        A dict with the ``mAP``, ``rank1``, ``rank5``, ``rank10`` and ``cmc``
+        entries, each key carrying ``prefix``.
+    """
+
+    def at_rank(k: int) -> float:
+        return float(cmc[k - 1]) if len(cmc) >= k else float(cmc[-1])
+
+    return {
+        f"{prefix}mAP": float(mean_ap),
+        f"{prefix}rank1": at_rank(1),
+        f"{prefix}rank5": at_rank(5),
+        f"{prefix}rank10": at_rank(10),
+        f"{prefix}cmc": cmc,
+    }

@@ -4,6 +4,14 @@ from __future__ import annotations
 
 from typing import Any
 
+_METRIC_KEYS = ("mAP", "rank1", "rank5", "rank10")
+
+
+def _row(label: str, results: dict[str, Any], prefix: str) -> str:
+    """Render one table row whose cells line up under the 10-wide headers."""
+    cells = "".join(f"{float(results[prefix + key]):>10.2%}" for key in _METRIC_KEYS)
+    return f"{label:<14}{cells}"
+
 
 def format_results_table(results: dict[str, Any]) -> str:
     """Render an evaluation results dict as an aligned, monospace text table.
@@ -19,21 +27,9 @@ def format_results_table(results: dict[str, Any]) -> str:
     header = f"{'Setting':<14}{'mAP':>10}{'Rank-1':>10}{'Rank-5':>10}{'Rank-10':>10}"
     sep = "-" * len(header)
     lines = [sep, header, sep]
-    lines.append(
-        f"{'Baseline':<14}"
-        f"{results['mAP']:>9.2%} "
-        f"{results['rank1']:>9.2%} "
-        f"{results['rank5']:>9.2%} "
-        f"{results['rank10']:>9.2%}"
-    )
+    lines.append(_row("Baseline", results, prefix=""))
     if "rerank_mAP" in results:
-        lines.append(
-            f"{'Re-ranked':<14}"
-            f"{results['rerank_mAP']:>9.2%} "
-            f"{results['rerank_rank1']:>9.2%} "
-            f"{results['rerank_rank5']:>9.2%} "
-            f"{results['rerank_rank10']:>9.2%}"
-        )
+        lines.append(_row("Re-ranked", results, prefix="rerank_"))
     lines.append(sep)
     return "\n".join(lines)
 

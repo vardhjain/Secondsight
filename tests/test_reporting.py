@@ -15,6 +15,7 @@ def test_baseline_only_table() -> None:
     # 0.70 formatted as a percentage with two decimals.
     assert "70.00%" in table
     assert "mAP" in table and "Rank-10" in table
+    assert len({len(line) for line in table.splitlines()}) == 1
 
 
 def test_table_includes_rerank_row_when_present() -> None:
@@ -29,5 +30,14 @@ def test_table_includes_rerank_row_when_present() -> None:
     table = format_results_table(results)
     assert "Re-ranked" in table
     assert "88.00%" in table
-    # The table is a non-empty, multi-line, aligned block.
-    assert len(table.splitlines()) >= 5
+    lines = table.splitlines()
+    assert len(lines) == 6
+    assert len({len(line) for line in lines}) == 1
+
+
+def test_values_right_align_under_headers() -> None:
+    """Each value ends in the same column as its header label."""
+    lines = format_results_table(_BASELINE).splitlines()
+    header, row = lines[1], lines[3]
+    for label, value in (("mAP", "70.00%"), ("Rank-10", "97.00%")):
+        assert header.index(label) + len(label) == row.index(value) + len(value)

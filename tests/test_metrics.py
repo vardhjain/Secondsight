@@ -1,6 +1,7 @@
 """Tests for the Market-1501 metrics (:mod:`reid.evaluation.metrics`).
 
-Light tests: only ``numpy`` is required. The expected CMC and mAP values below
+Light tests: the metric code needs only ``numpy``, and a subprocess test below
+checks that importing it does not pull in ``torch``. The expected CMC and mAP values below
 are computed by hand on tiny, fully tractable distance matrices, so any drift in
 the metric implementation is caught exactly.
 
@@ -21,6 +22,11 @@ Hand-derivation reference for the primary case
 """
 
 from __future__ import annotations
+
+import os
+import subprocess
+import sys
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -101,10 +107,13 @@ def test_same_camera_same_id_exclusion() -> None:
     g_pids = np.array([0, 1, 0, 1])
     g_camids = np.array([0, 0, 1, 1])
 
-    cmc, _ = compute_cmc_map(distmat, q_pids, g_pids, q_camids, g_camids, max_rank=3)
-    # q0: after removing g0 (pid0/cam0), nearest kept is g2 (pid0) -> rank-1 hit.
-    # q1: after removing g1 (pid1/cam0), nearest kept is g2 (pid0) -> rank-1 miss.
-    np.testing.assert_allclose(cmc[0], 0.5, atol=1e-6)
+    cmc, mean_ap = compute_cmc_map(distmat, q_pids, g_pids, q_camids, g_camids, max_rank=3)
+    # q0: after removing g0 (pid0/cam0) the kept order is g2, g1, g3 with
+    # relevance [1, 0, 0], a rank-1 hit with AP 1.
+    # q1: after removing g1 (pid1/cam0) the kept order is g0, g2, g3 with
+    # relevance [0, 0, 1], a rank-3 hit with AP 1/3.
+    np.testing.assert_allclose(cmc, [0.5, 0.5, 1.0], atol=1e-6)
+    assert mean_ap == pytest.approx((1.0 + 1.0 / 3.0) / 2.0, abs=1e-6)
 
 
 def test_max_rank_clamped_to_gallery_size() -> None:
@@ -148,3 +157,119 @@ def test_perfect_ranking_gives_unit_map() -> None:
     cmc, mean_ap = compute_cmc_map(distmat, q_pids, g_pids, q_camids, g_camids, max_rank=2)
     assert mean_ap == pytest.approx(1.0, abs=1e-6)
     assert cmc[0] == pytest.approx(1.0, abs=1e-6)
+
+
+def test_cmc_forward_fills_when_exclusion_shortens_row() -> None:
+    """A query whose kept gallery is shorter than ``max_rank`` is padded with its last value."""
+    distmat = np.array([[0.1, 0.2, 0.3, 0.4], [0.1, 0.2, 0.4, 0.3]], dtype=np.float32)
+    q_pids = np.array([0, 1])
+    q_camids = np.array([0, 0])
+    g_pids = np.array([0, 0, 0, 1])
+    g_camids = np.array([0, 0, 1, 1])
+    # q0 keeps only g2 (hit) and g3, so its CMC [1, 1] is forward-filled to length 4.
+    # q1 keeps the whole gallery and first hits at rank 3 (AP 1/3).
+    cmc, mean_ap = compute_cmc_map(distmat, q_pids, g_pids, q_camids, g_camids, max_rank=4)
+    np.testing.assert_allclose(cmc, [0.5, 0.5, 1.0, 1.0], atol=1e-6)
+    assert mean_ap == pytest.approx(2.0 / 3.0, abs=1e-6)
+
+
+def test_forward_fill_single_query_after_exclusion() -> None:
+    """After excluding the same-camera match, a rank-2 hit is forward-filled to rank 4."""
+    distmat = np.array([[0.1, 0.3, 0.2, 0.4]], dtype=np.float32)
+    cmc, mean_ap = compute_cmc_map(
+        distmat,
+        np.array([0]),
+        np.array([0, 0, 1, 1]),
+        np.array([0]),
+        np.array([0, 1, 1, 2]),
+        max_rank=4,
+    )
+    np.testing.assert_allclose(cmc, [0.0, 1.0, 1.0, 1.0], atol=1e-6)
+    assert mean_ap == pytest.approx(0.5, abs=1e-6)
+
+
+def test_unmatched_query_is_skipped() -> None:
+    """A query without any valid match is skipped, leaving CMC and mAP unchanged."""
+    base = np.array([[0.1, 0.2, 0.3, 0.4], [0.1, 0.2, 0.4, 0.3]], dtype=np.float32)
+    g_pids = np.array([0, 0, 0, 1])
+    g_camids = np.array([0, 0, 1, 1])
+    cmc, mean_ap = compute_cmc_map(
+        base, np.array([0, 1]), g_pids, np.array([0, 0]), g_camids, max_rank=4
+    )
+    extended = np.vstack([base, [[0.1, 0.2, 0.3, 0.4]]]).astype(np.float32)
+    cmc_ext, mean_ap_ext = compute_cmc_map(
+        extended, np.array([0, 1, 9]), g_pids, np.array([0, 0, 0]), g_camids, max_rank=4
+    )
+    np.testing.assert_allclose(cmc_ext, cmc, atol=1e-6)
+    assert mean_ap_ext == pytest.approx(mean_ap, abs=1e-6)
+    aps = compute_ap_per_query(extended, np.array([0, 1, 9]), g_pids, np.array([0, 0, 0]), g_camids)
+    assert aps.shape == (2,)
+
+
+def test_distractors_count_as_negatives() -> None:
+    """Distractor gallery items (pid 0) ranked first count as misses."""
+    distmat = np.array([[0.1, 0.2]], dtype=np.float32)
+    cmc, mean_ap = compute_cmc_map(
+        distmat, np.array([5]), np.array([0, 5]), np.array([1]), np.array([2, 2]), max_rank=2
+    )
+    np.testing.assert_allclose(cmc, [0.0, 1.0], atol=1e-6)
+    assert mean_ap == pytest.approx(0.5, abs=1e-6)
+
+
+@pytest.mark.parametrize("max_rank", [0, -3])
+def test_invalid_max_rank_raises(max_rank: int) -> None:
+    """A non-positive ``max_rank`` raises ``ValueError``."""
+    distmat = np.array([[0.1, 0.2]], dtype=np.float32)
+    with pytest.raises(ValueError):
+        compute_cmc_map(
+            distmat, np.array([0]), np.array([0, 1]), np.array([0]), np.array([1, 1]), max_rank
+        )
+
+
+def test_average_precision_matches_loop_definition() -> None:
+    """The vectorized AP equals the textbook mean of precision at each hit."""
+    rng = np.random.default_rng(0)
+    distmat = rng.random((5, 30)).astype(np.float32)
+    q_pids = np.arange(5)
+    g_pids = rng.integers(0, 5, size=30)
+    q_camids = np.zeros(5, dtype=np.int64)
+    g_camids = np.ones(30, dtype=np.int64)
+    aps = compute_ap_per_query(distmat, q_pids, g_pids, q_camids, g_camids)
+    expected = []
+    for q in range(5):
+        rel = (g_pids[np.argsort(distmat[q])] == q_pids[q]).astype(float)
+        if rel.any():
+            precision = np.cumsum(rel) / np.arange(1, rel.size + 1)
+            expected.append(float((precision * rel).sum() / rel.sum()))
+    np.testing.assert_allclose(aps, expected, atol=1e-6)
+
+
+def _run_isolated(code: str) -> str:
+    """Run ``code`` in a fresh interpreter with ``src`` on the path and return stdout."""
+    repo = Path(__file__).resolve().parents[1]
+    env = {**os.environ, "PYTHONPATH": str(repo / "src")}
+    proc = subprocess.run(
+        [sys.executable, "-c", code],
+        env=env,
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=600,
+    )
+    return proc.stdout.strip()
+
+
+def test_metrics_import_does_not_import_torch() -> None:
+    """``import reid.evaluation.metrics`` needs only NumPy, thanks to the lazy package."""
+    out = _run_isolated("import sys, reid.evaluation.metrics; print('torch' in sys.modules)")
+    assert out == "False"
+
+
+def test_reid_import_avoids_optional_dependencies() -> None:
+    """Importing ``reid`` never loads torchvision or the optional extras."""
+    code = (
+        "import sys, reid; "
+        "print([m for m in ('torchvision', 'cv2', 'gradio', 'kagglehub') if m in sys.modules])"
+    )
+    assert _run_isolated(code) == "[]"
