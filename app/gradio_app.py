@@ -2,8 +2,8 @@
 
 This app lets a user upload a *probe* (query) person crop and retrieves the
 most visually similar people from the Market-1501 gallery, ranked by cosine
-similarity of their learned embeddings. It is designed to be runnable in a
-recruiter-facing portfolio context with minimal friction:
+similarity of their learned embeddings. It is designed to launch with minimal
+setup, even when weights or data are missing.
 
 * **No trained weights?** The app warns and falls back to a randomly
   initialized model, so the UI is still fully interactive (matches will simply
@@ -13,17 +13,23 @@ recruiter-facing portfolio context with minimal friction:
   ``REID_DATA_ROOT`` environment variable).
 
 Weights are resolved from ``--weights`` or the ``REID_WEIGHTS`` environment
-variable; the dataset root from ``--data-root`` or ``REID_DATA_ROOT``.
+variable, and the dataset root from ``--data-root`` or ``REID_DATA_ROOT``. The
+architecture and input size come from the config embedded in the checkpoint,
+and embeddings use the same flip test-time augmentation and normalization as
+the evaluation protocol. The server binds to ``--server-name`` and
+``--server-port``, falling back to ``GRADIO_SERVER_NAME`` and
+``GRADIO_SERVER_PORT`` and then to ``127.0.0.1:7860``, so the Docker image
+(which sets ``GRADIO_SERVER_NAME=0.0.0.0``) is reachable from the host.
 
-``gradio`` is imported lazily inside :func:`build_demo` / :func:`main` so that
-importing this module (e.g. for testing helper functions) does not require the
-dependency.
+``gradio`` comes from the ``demo`` extra and is imported only inside
+:func:`build_demo` and :func:`main`, so importing this module (for example to
+test the helpers) does not require it.
 
 Example:
     Launch the demo against a trained checkpoint::
 
         python -m app.gradio_app \\
-            --weights outputs/strong_baseline/best.pth \\
+            --weights outputs/strong_baseline/model_final.pth \\
             --data-root /path/to/Market-1501-v15.09.15
 """
 
@@ -39,21 +45,24 @@ import numpy as np
 import torch
 from torch.nn.functional import normalize
 
-from reid.config import Config
+from reid.config import Config, default_config_path
 from reid.data.dataset import Market1501
 from reid.data.transforms import build_transforms
-from reid.models.reid_model import build_model
-from reid.utils.checkpoint import infer_num_classes_from_checkpoint, load_model
+from reid.models.reid_model import ReIDModel, build_model, load_trained_model
 from reid.utils.device import resolve_device
 from reid.utils.logging import setup_logger
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:  # pragma: no cover (typing only)
     import gradio as gr
     from PIL import Image
 
-_DEFAULT_CONFIG = "configs/market1501_strong_baseline.yaml"
 _ENV_WEIGHTS = "REID_WEIGHTS"
 _ENV_DATA_ROOT = "REID_DATA_ROOT"
+_ENV_SERVER_NAME = "GRADIO_SERVER_NAME"
+_ENV_SERVER_PORT = "GRADIO_SERVER_PORT"
+_DEFAULT_SERVER_NAME = "127.0.0.1"
+_DEFAULT_SERVER_PORT = 7860
+_LOOPBACK = frozenset({"127.0.0.1", "localhost", "::1"})
 # Cap the indexed gallery so the demo stays responsive on CPU.
 _DEFAULT_GALLERY_LIMIT = 2000
 
@@ -64,16 +73,18 @@ class ReIDDemoEngine:
     """Backend for the Gradio demo: model, gallery index and search.
 
     The engine loads (or randomly initializes) the model, optionally indexes a
-    subset of the Market-1501 gallery by extracting L2-normalized embeddings,
-    and answers nearest-neighbor queries for an uploaded probe image.
+    subset of the Market-1501 gallery by extracting embeddings, and answers
+    nearest-neighbor queries for an uploaded probe image.
 
     Attributes:
-        cfg: The experiment configuration.
+        cfg: The effective configuration. When trained weights are loaded, its
+            model section and input size come from the checkpoint.
         device: Device used for inference.
+        transform: The evaluation transform for the effective input size.
         model: The Re-ID model (trained or randomly initialized).
         has_weights: Whether trained weights were successfully loaded.
         gallery: The indexed gallery dataset, or ``None`` if unavailable.
-        gallery_features: L2-normalized gallery embeddings, or ``None``.
+        gallery_features: Gallery embeddings, or ``None``.
         status_message: A human-readable description of the engine's state.
     """
 
@@ -88,53 +99,50 @@ class ReIDDemoEngine:
         """Initialize the engine, loading weights and indexing the gallery.
 
         Args:
-            cfg: The experiment configuration.
+            cfg: The experiment configuration. It is not modified.
             weights: Optional path to trained weights. ``None`` or a missing
                 file triggers a random-initialization fallback.
             data_root: Optional path to the Market-1501 data root. ``None`` or a
                 missing directory disables gallery search.
             device: Device on which to run inference.
-            gallery_limit: Maximum number of gallery images to index.
+            gallery_limit: Maximum number of gallery images to index
+                (``0`` means no limit).
         """
         self.cfg = cfg
         self.device = device
-        self.transform = build_transforms(cfg.data, is_train=False)
-
         self.gallery: Market1501 | None = None
         self.gallery_features: torch.Tensor | None = None
         self.has_weights = False
         self.status_message = ""
 
-        num_classes = self._index_gallery(data_root, gallery_limit)
-        self._build_model(weights, num_classes)
+        # The model comes first because a checkpoint can change the input size,
+        # which the transform and therefore the gallery depend on.
+        self._build_model(weights)
+        self.transform = build_transforms(self.cfg.data, is_train=False)
+        self._index_gallery(data_root, gallery_limit)
         if self.gallery is not None:
             self._extract_gallery_features()
 
         self.status_message = self._compose_status()
 
-    def _index_gallery(self, data_root: Path | None, gallery_limit: int) -> int:
+    def _index_gallery(self, data_root: Path | None, gallery_limit: int) -> None:
         """Load the gallery dataset if a valid data root is provided.
 
         Args:
             data_root: Path to the Market-1501 data root, or ``None``.
             gallery_limit: Maximum number of gallery images to index.
-
-        Returns:
-            A class count usable for sizing the classifier head (the gallery's
-            unique identity count, or a small positive default when no gallery
-            is available). The classifier is unused at inference time.
         """
         if data_root is None:
             logger.warning("No data root provided; gallery search is disabled.")
-            return 1
+            return
         if not data_root.is_dir():
             logger.warning("Data root %s not found; gallery search is disabled.", data_root)
-            return 1
+            return
         try:
             gallery = Market1501(data_root, subset="gallery", transform=self.transform)
         except (FileNotFoundError, ValueError) as exc:
             logger.warning("Failed to load gallery from %s: %s", data_root, exc)
-            return 1
+            return
 
         # Optionally subsample to keep the demo responsive.
         if gallery_limit and len(gallery) > gallery_limit:
@@ -146,55 +154,73 @@ class ReIDDemoEngine:
             logger.info("Subsampled gallery to %d images for the demo.", len(gallery))
 
         self.gallery = gallery
-        return max(1, gallery.num_classes)
 
-    def _build_model(self, weights: Path | None, num_classes: int) -> None:
-        """Build the model and load weights if available.
+    def _build_model(self, weights: Path | None) -> None:
+        """Load the trained model, or fall back to a randomly initialized one.
+
+        Trained weights are loaded strictly through
+        :func:`~reid.models.reid_model.load_trained_model`, which also adopts
+        the architecture and input size stored in the checkpoint. The fallback
+        model is built without ImageNet weights, so the demo never downloads
+        anything and the status banner can honestly call it random.
 
         Args:
             weights: Optional path to trained weights.
-            num_classes: Classifier size (unused at inference but required to
-                construct the head).
         """
-        # If a checkpoint is available, size the classifier from it so weights
-        # load cleanly.
-        resolved_classes = infer_num_classes_from_checkpoint(weights, fallback=num_classes)
-        model = build_model(self.cfg, num_classes=resolved_classes)
-
-        if weights is not None and weights.exists():
+        model: ReIDModel | None = None
+        if weights is not None and weights.is_file():
             try:
-                load_model(model, weights, map_location="cpu")
+                model, self.cfg = load_trained_model(weights, self.cfg)
                 self.has_weights = True
                 logger.info("Loaded model weights from %s", weights)
-            except Exception:  # noqa: BLE001 - never crash the demo on bad weights
+            except Exception:  # noqa: BLE001 (never crash the demo on bad weights)
                 logger.exception("Failed to load weights from %s; using random init.", weights)
+        elif weights is not None:
+            logger.warning("Weights file %s not found; using random initialization.", weights)
         else:
-            if weights is not None:
-                logger.warning("Weights file %s not found; using random initialization.", weights)
-            else:
-                logger.warning("No weights provided; using random initialization.")
+            logger.warning("No weights provided; using random initialization.")
 
+        if model is None:
+            # The classifier head is unused at inference, so its size is arbitrary.
+            model = build_model(self.cfg, num_classes=1, pretrained=False)
         self.model = model.to(self.device).eval()
 
-    @torch.no_grad()
-    def _embed(self, image: Image.Image) -> torch.Tensor:
-        """Embed a single PIL image into an L2-normalized feature vector.
+    def _features(self, images: torch.Tensor) -> torch.Tensor:
+        """Embed a batch following the evaluation protocol in ``cfg.eval``.
 
         Args:
-            image: An RGB ``PIL.Image``.
+            images: Normalized image batch of shape ``[B, 3, H, W]`` on the
+                engine's device.
 
         Returns:
-            A CPU tensor of shape ``(1, feat_dim)`` (L2-normalized).
+            A CPU float tensor of shape ``[B, feat_dim]``. It is averaged with
+            the features of the horizontally flipped batch when ``flip_tta`` is
+            set and L2-normalized when ``feat_norm`` is set.
         """
-        tensor = self.transform(image.convert("RGB")).unsqueeze(0).to(self.device)
-        feat = self.model.extract_features(tensor)
+        feat = self.model.extract_features(images).float()
+        if self.cfg.eval.flip_tta:
+            flipped = self.model.extract_features(torch.flip(images, dims=[3])).float()
+            feat = (feat + flipped) / 2.0
         if self.cfg.eval.feat_norm:
             feat = normalize(feat, p=2, dim=1)
         return feat.cpu()
 
     @torch.no_grad()
+    def _embed(self, image: Image.Image) -> torch.Tensor:
+        """Embed a single PIL image with the evaluation protocol.
+
+        Args:
+            image: An RGB ``PIL.Image``.
+
+        Returns:
+            A CPU tensor of shape ``(1, feat_dim)``.
+        """
+        tensor = self.transform(image.convert("RGB")).unsqueeze(0).to(self.device)
+        return self._features(tensor)
+
+    @torch.no_grad()
     def _extract_gallery_features(self) -> None:
-        """Extract and cache L2-normalized embeddings for the indexed gallery."""
+        """Extract and cache embeddings for the indexed gallery."""
         assert self.gallery is not None
         from torch.utils.data import DataLoader
 
@@ -204,13 +230,7 @@ class ReIDDemoEngine:
             shuffle=False,
             num_workers=0,
         )
-        feats: list[torch.Tensor] = []
-        for images, _pids, _camids in loader:
-            images = images.to(self.device)
-            batch_feat = self.model.extract_features(images)
-            if self.cfg.eval.feat_norm:
-                batch_feat = normalize(batch_feat, p=2, dim=1)
-            feats.append(batch_feat.cpu())
+        feats = [self._features(images.to(self.device)) for images, _pids, _camids in loader]
         self.gallery_features = torch.cat(feats, dim=0)
         logger.info("Indexed %d gallery embeddings.", self.gallery_features.shape[0])
 
@@ -225,7 +245,7 @@ class ReIDDemoEngine:
             parts.append("Model: trained weights loaded.")
         else:
             parts.append(
-                "Model: **random initialization** (no valid weights) - "
+                "Model: **random initialization** (no valid weights), so "
                 "matches will be uninformative. Pass `--weights` or set "
                 "`REID_WEIGHTS` to a trained checkpoint."
             )
@@ -266,7 +286,7 @@ class ReIDDemoEngine:
         # Cosine similarity == dot product of L2-normalized features.
         sims = (probe_feat @ self.gallery_features.t()).squeeze(0).numpy()
         topk = int(max(1, min(topk, len(self.gallery))))
-        order = np.argsort(-sims)[:topk]
+        order = np.argsort(-sims, kind="stable")[:topk]
 
         items: list[tuple[Any, str]] = []
         for rank, gid in enumerate(order, start=1):
@@ -281,7 +301,7 @@ class ReIDDemoEngine:
             caption = f"#{rank} | ID {pid} | Cam {camid} | sim {sims[int(gid)]:.3f}"
             items.append((img, caption))
 
-        suffix = "" if self.has_weights else " (random-init model - results are not meaningful)"
+        suffix = "" if self.has_weights else " (random-init model, so results are not meaningful)"
         return items, f"Showing top-{topk} matches by cosine similarity.{suffix}"
 
 
@@ -293,8 +313,15 @@ def build_demo(engine: ReIDDemoEngine) -> gr.Blocks:
 
     Returns:
         A :class:`gradio.Blocks` application ready to ``launch``.
+
+    Raises:
+        ImportError: If gradio is not installed.
     """
-    import gradio as gr
+    try:
+        import gradio as gr
+    except ImportError as exc:
+        msg = 'The demo requires gradio. Install it with pip install "secondsight[demo]"'
+        raise ImportError(msg) from exc
 
     with gr.Blocks(title="Person Re-ID - Market-1501") as demo:
         gr.Markdown(
@@ -330,6 +357,29 @@ def build_demo(engine: ReIDDemoEngine) -> gr.Blocks:
     return demo
 
 
+def parse_auth(value: str) -> tuple[str, str]:
+    """Parse a ``USER:PASS`` credential for ``--auth``.
+
+    Only the first colon separates the two parts, so the password may itself
+    contain colons.
+
+    Args:
+        value: The raw ``--auth`` value.
+
+    Returns:
+        A ``(user, password)`` tuple.
+
+    Raises:
+        argparse.ArgumentTypeError: If the colon is missing or the user or the
+            password is empty, which would otherwise allow a blank password.
+    """
+    user, sep, password = value.partition(":")
+    if not sep or not user or not password:
+        msg = "--auth must be USER:PASS with a non-empty user and password."
+        raise argparse.ArgumentTypeError(msg)
+    return user, password
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build the argument parser for the Gradio app.
 
@@ -343,8 +393,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--config",
         type=Path,
-        default=Path(_DEFAULT_CONFIG),
-        help="Path to the YAML configuration file.",
+        default=None,
+        help="YAML configuration file. Defaults to the packaged strong-baseline config.",
     )
     parser.add_argument(
         "--weights",
@@ -362,7 +412,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--device",
         type=str,
         default=None,
-        help="Compute device, e.g. 'cuda' or 'cpu'. Overrides train.device.",
+        help="Compute device ('auto', 'cuda', 'mps' or 'cpu'). Overrides train.device.",
     )
     parser.add_argument(
         "--gallery-limit",
@@ -373,14 +423,19 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--server-name",
         type=str,
-        default="127.0.0.1",
-        help="Host interface to bind the Gradio server to.",
+        default=None,
+        help=(
+            f"Host interface to bind. Defaults to the {_ENV_SERVER_NAME} env var, "
+            f"else {_DEFAULT_SERVER_NAME}."
+        ),
     )
     parser.add_argument(
         "--server-port",
         type=int,
-        default=7860,
-        help="Port for the Gradio server.",
+        default=None,
+        help=(
+            f"Server port. Defaults to the {_ENV_SERVER_PORT} env var, else {_DEFAULT_SERVER_PORT}."
+        ),
     )
     parser.add_argument(
         "--share",
@@ -389,13 +444,35 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--auth",
-        type=str,
+        type=parse_auth,
         default=None,
         metavar="USER:PASS",
-        help="Require HTTP basic auth as 'user:password'. Recommended whenever "
-        "binding to a non-loopback --server-name or using --share.",
+        help="Require a login as 'user:password'. Recommended whenever the server "
+        "binds to a non-loopback interface or --share is used.",
     )
     return parser
+
+
+def resolve_server(name: str | None, port: int | None) -> tuple[str, int]:
+    """Resolve the server address from the CLI, the environment or defaults.
+
+    Args:
+        name: The ``--server-name`` value, or ``None``.
+        port: The ``--server-port`` value, or ``None``.
+
+    Returns:
+        A ``(server_name, server_port)`` tuple. Missing values fall back to
+        ``GRADIO_SERVER_NAME`` and ``GRADIO_SERVER_PORT``, then to
+        ``127.0.0.1`` and ``7860``.
+
+    Raises:
+        ValueError: If ``GRADIO_SERVER_PORT`` is set but is not an integer.
+    """
+    server_name = name or os.environ.get(_ENV_SERVER_NAME) or _DEFAULT_SERVER_NAME
+    if port is not None:
+        return server_name, port
+    env_port = os.environ.get(_ENV_SERVER_PORT)
+    return server_name, int(env_port) if env_port else _DEFAULT_SERVER_PORT
 
 
 def _resolve_path(cli_value: Path | None, env_var: str) -> Path | None:
@@ -422,15 +499,22 @@ def main(argv: list[str] | None = None) -> int:
             ``sys.argv[1:]``).
 
     Returns:
-        Process exit code (``0`` on a clean shutdown).
+        Process exit code (``0`` on a clean shutdown, ``1`` on a setup error).
     """
     args = build_parser().parse_args(argv)
     setup_logger("reid")
 
-    if not args.config.is_file():
-        logger.error("Config file not found: %s", args.config)
+    config_path = args.config if args.config is not None else default_config_path()
+    if not config_path.is_file():
+        logger.error("Config file not found: %s", config_path)
         return 1
-    cfg = Config.from_yaml(args.config)
+    try:
+        server_name, server_port = resolve_server(args.server_name, args.server_port)
+    except ValueError:
+        logger.error("%s must be an integer port number.", _ENV_SERVER_PORT)
+        return 1
+
+    cfg = Config.from_yaml(config_path)
     if args.device is not None:
         cfg.train.device = args.device
     device = resolve_device(cfg.train.device)
@@ -449,22 +533,18 @@ def main(argv: list[str] | None = None) -> int:
     )
     logger.info(engine.status_message.replace("**", ""))
 
-    auth: tuple[str, str] | None = None
-    if args.auth:
-        user, _, password = args.auth.partition(":")
-        auth = (user, password)
-    loopback = {"127.0.0.1", "localhost", "::1"}
-    if (args.share or args.server_name not in loopback) and auth is None:
+    auth: tuple[str, str] | None = args.auth
+    if (args.share or server_name not in _LOOPBACK) and auth is None:
         logger.warning(
             "Exposing the demo on %s without authentication; pass --auth "
             "USER:PASS to require a login.",
-            "a public share link" if args.share else args.server_name,
+            "a public share link" if args.share else server_name,
         )
 
     demo = build_demo(engine)
     demo.launch(
-        server_name=args.server_name,
-        server_port=args.server_port,
+        server_name=server_name,
+        server_port=server_port,
         share=args.share,
         auth=auth,
     )

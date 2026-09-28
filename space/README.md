@@ -4,7 +4,7 @@ emoji: 🔍
 colorFrom: indigo
 colorTo: blue
 sdk: gradio
-sdk_version: 5.50.0
+sdk_version: 6.28.0
 python_version: "3.11"
 app_file: app.py
 pinned: false
@@ -19,7 +19,9 @@ learned embeddings are, using the ResNet-50 + BNNeck model from the
 Market-1501. A higher cosine similarity means the two crops are more likely to
 be the same person seen on a different camera.
 
-The demo runs on CPU, needs no dataset, and does not host any gallery images, so
-no real person imagery is redistributed. See the GitHub repository for the full
+The demo runs on CPU, needs no dataset, and does not host the Market-1501
+gallery. The same or different verdict uses a fixed cosine threshold of 0.5
+that has not been calibrated on held-out pairs, so treat it as a rough hint
+rather than a measured decision. See the GitHub repository for the full
 training pipeline, the measured results, and the model card with its limitations
 and ethics notes.
