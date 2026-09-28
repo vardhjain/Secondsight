@@ -6,7 +6,7 @@ follows.
 
 ## Development setup
 
-The project targets **Python 3.10+** and uses [`uv`](https://github.com/astral-sh/uv)
+The project supports **Python 3.10 through 3.14** and uses [`uv`](https://github.com/astral-sh/uv)
 for environment and dependency management.
 
 ```bash
@@ -14,23 +14,24 @@ for environment and dependency management.
 git clone https://github.com/vardhjain/Secondsight.git
 cd Secondsight
 
-# 2. Create the environment and install the package + dev tools (editable)
-uv sync --extra dev          # or: make install
+# 2. Create the environment and install the package, all extras and dev tools
+uv sync --extra all --extra dev               # or: make install
+#    On a machine without a CUDA GPU, add --extra cpu to get the CPU PyTorch wheels
 
 # 3. Install the pre-commit hooks
 uv run pre-commit install
 ```
 
-If you prefer plain `pip`:
+If you prefer plain `pip`, install the package in editable mode.
 
 ```bash
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -e ".[dev]"
+pip install -e ".[all,dev]"
 ```
 
 ## Quality gates
 
-Every change must pass the same checks CI runs. The `Makefile` wraps them:
+Every change must pass the same checks CI runs, and the `Makefile` wraps them.
 
 ```bash
 make format        # ruff format . && ruff check --fix .
@@ -45,9 +46,10 @@ make test          # pytest
 - **Types:** public functions and classes are fully type-annotated; `mypy` runs
   in non-blocking mode in CI.
 - **Tests:** [pytest](https://docs.pytest.org/). Light tests run on CPU with only
-  `numpy`/`torch`/`Pillow`; heavy tests (the model and the transform pipeline)
+  NumPy, PyTorch, Pillow and PyYAML; heavy tests (the model and the transform pipeline)
   are guarded with `pytest.importorskip("torchvision")` and skip cleanly when
-  `torchvision` is absent. New behavior should come with a test.
+  `torchvision` is absent. Tests must never touch the network (a shared fixture
+  blocks downloads), and new behavior should come with a test.
 
 ## Conventions
 
@@ -55,9 +57,10 @@ make test          # pytest
   dependency injection over globals. Avoid `print` inside the library, and use the
   `logging` module (`reid.utils.logging.setup_logger`).
 - **Lazy heavy imports:** importing the top-level `reid` package (and the
-  numpy-only `reid.evaluation.metrics`) must never require `torchvision`,
-  `cv2`, `gradio`, or `kagglehub`. Import heavy optional deps inside the
-  submodule/function that needs them.
+  numpy-only `reid.evaluation.metrics`) must never require an optional extra.
+  Import matplotlib, seaborn, scikit-learn, OpenCV, Gradio and kagglehub inside
+  the function that needs them, and when one is missing raise an `ImportError`
+  that names the extra, for example `pip install "secondsight[viz]"`.
 - **Configuration:** new knobs go through `reid.config` dataclasses and the YAML
   files, never as hardcoded constants in the training/eval paths.
 - **Commits:** clear, imperative subject lines (e.g. "Add cosine scheduler").

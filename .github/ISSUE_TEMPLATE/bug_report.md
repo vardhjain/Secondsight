@@ -31,10 +31,11 @@ A clear and concise description of what you expected to happen.
 ## Environment
 
 - OS: <!-- e.g. Ubuntu 22.04, Windows 11 -->
-- Python version: <!-- e.g. 3.11.9 -->
+- Python version: <!-- e.g. 3.12.4 (3.10 to 3.14 are supported) -->
 - PyTorch version: <!-- e.g. 2.3.0 -->
 - CUDA / device: <!-- e.g. CUDA 12.1 GPU, or CPU-only -->
 - Package version / commit: <!-- e.g. 0.1.0, or git SHA -->
+- Installed extras: <!-- e.g. all, dev, cpu -->
 
 ## Additional context
 

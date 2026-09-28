@@ -22,6 +22,8 @@ Please fill out the sections below so reviewers can evaluate your change quickly
 - [ ] `uv run pytest -q` passes locally
 - [ ] `uv run ruff check .` passes
 - [ ] `uv run ruff format --check .` passes
+- [ ] `uv run mypy` passes
+- [ ] No test touches the network
 
 ## Checklist
 

@@ -2,13 +2,13 @@
 
 ## Supported versions
 
-This project is in active early development. Security fixes are applied to the
-latest release on the `main` branch only.
+This project is in active early development and has not published a tagged
+release yet. Security fixes are applied to the `main` branch only.
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 0.1.x   | :white_check_mark: |
-| < 0.1   | :x:                |
+| Version            | Supported          |
+| ------------------ | ------------------ |
+| `main` (latest)    | :white_check_mark: |
+| older commits      | :x:                |
 
 ## Reporting a vulnerability
 
@@ -36,15 +36,24 @@ When you report an issue, please include as much of the following as you can.
 
 ## Scope and notes
 
-This is a research/portfolio computer-vision project. A few points worth noting
-for anyone deploying it:
+This is a research/portfolio computer-vision project. Anyone deploying it should
+keep the following points in mind.
 
 - **Model checkpoints are untrusted input.** Loading a `.pth`/`.pt` file
   executes arbitrary code via Python's `pickle` unless `weights_only=True` is
-  used. Only load checkpoints from sources you trust.
-- The bundled **Gradio demo** is intended for local/offline use. It launches
-  with `share=False`; do not expose it to untrusted networks without adding
-  authentication and input validation appropriate to your environment.
+  used. The bundled evaluation, visualization and demo paths load with
+  `weights_only=True`, but you should still only load checkpoints from sources
+  you trust.
+- The local **Gradio demo** (`app/gradio_app.py`) is intended for local or
+  offline use. It launches with `share=False` and binds to `127.0.0.1` unless
+  `--server-name` or `GRADIO_SERVER_NAME` says otherwise (the Docker image sets
+  it to `0.0.0.0` so the mapped port works). Do not expose it to untrusted
+  networks without adding authentication (`--auth`) and input validation
+  appropriate to your environment.
+- The optional **Hugging Face Space** (`space/`) is a public, unauthenticated
+  CPU demo that compares two uploaded crops. It stores no uploads, has flagging
+  disabled, and reports an uncalibrated similarity, so it must not be treated
+  as an identification service.
 - Dataset downloads rely on third-party services (`kagglehub`); verify their
   integrity before use.
 

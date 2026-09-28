@@ -6,10 +6,11 @@ model intended for **research, education, and portfolio demonstration**.
 
 ## Model details
 
-- **Model:** ResNet-50 + BNNeck person re-identification network, the "strong
-  baseline" of Luo et al., *Bag of Tricks and a Strong Baseline for Deep Person
-  Re-Identification* (CVPRW 2019).
-- **Version:** 0.1.0
+- **Model:** ResNet-50 + BNNeck person re-identification network that closely
+  follows the "strong baseline" of Luo et al., *Bag of Tricks and a Strong
+  Baseline for Deep Person Re-Identification* (CVPRW 2019), with the deliberate
+  changes listed under Training procedure.
+- **Version:** 0.1.0 (untagged; see the changelog for unreleased changes)
 - **Task:** Deep metric learning for **cross-camera person retrieval**. The model
   maps a pedestrian image crop to a 2048-d L2-normalized embedding; identity
   matching is performed by cosine distance between embeddings (with optional
@@ -17,7 +18,7 @@ model intended for **research, education, and portfolio demonstration**.
 - **Architecture:** ImageNet-pretrained ResNet-50 backbone with `last_stride=1`,
   generalized-mean (GeM) pooling, and a BNNeck bottleneck. A linear identity
   classifier head is used **only during training**.
-- **Framework:** PyTorch (≥ 2.2).
+- **Framework:** PyTorch (≥ 2.3).
 - **License:** MIT.
 - **Repository:** https://github.com/vardhjain/Secondsight
 - **Contact:** vardhjain20@gmail.com
@@ -47,9 +48,18 @@ a biometric identification system and must not be used as one.
 
 - **Dataset:** Market-1501 (Zheng et al., 2015), which holds 1,501 identities
   recorded by 6 cameras outside a university supermarket. It provides 12,936
-  training images across 751 identities, together with 3,368 query and 15,913
-  gallery images across 750 test identities, plus junk and distractor crops from
-  an automatic person detector.
+  training images across 751 identities, together with 3,368 query images of 750
+  identities and a 15,913-image gallery. The gallery covers the 750 test
+  identities plus 2,793 distractor crops labelled `0000`, which are kept as hard
+  negatives. The 3,819 junk crops labelled `-1` in `bounding_box_test` are
+  discarded on load, per the standard protocol. All crops come from an automatic
+  person detector.
+- **Validation:** Market-1501 has no official validation split. When
+  `data.val_ids` is set, that many training identities (seen by at least two
+  cameras, chosen deterministically from the seed) are held out as a small
+  query and gallery set used for periodic evaluation and `best.pth` selection.
+  The reported run did not use a hold-out, and its numbers come from the
+  final-epoch weights rather than a test-selected checkpoint.
 - **Known biases:** a single site, season, and camera rig; limited demographic
   and geographic diversity; fixed viewpoints and heights. Models trained on it
   generalize poorly across domains without adaptation.
@@ -58,12 +68,18 @@ a biometric identification system and must not be used as one.
 
 - **Sampling:** identity-balanced PK sampler (P = 16 identities × K = 4 instances
   per batch; batch size 64) so batch-hard triplet mining is well-posed.
-- **Losses:** label-smoothed cross-entropy + batch-hard triplet, with optional
-  center loss.
-- **Optimization:** Adam with linear LR warmup followed by multistep (or cosine)
-  decay; AMP mixed precision.
+- **Losses:** label-smoothed cross-entropy plus batch-hard triplet, with center
+  loss (weight 0.0005, centers updated by SGD at learning rate 0.5) enabled for
+  the reported checkpoint. All loss terms are computed in float32.
+- **Optimization:** Adam with linear LR warmup followed by multistep decay at
+  epochs 30 and 50, for 60 epochs; AMP mixed precision for the forward pass.
+- **Deviations from Luo et al.:** GeM pooling instead of global average pooling,
+  60 epochs with decay at 30 and 50 instead of 120 epochs with decay at 40 and
+  70, horizontal-flip test-time augmentation, and a single seed.
 - **Augmentation:** resize 256×128, horizontal flip, pad + random crop, random
-  erasing, ImageNet normalization (test-time uses resize + normalize only).
+  erasing, ImageNet normalization. The test-time transform is resize and
+  normalize, and evaluation additionally averages each embedding with that of
+  the horizontally flipped image.
 - **Compute:** a single GPU (~40 minutes on a free Colab T4).
 
 ## Evaluation
@@ -72,10 +88,24 @@ a biometric identification system and must not be used as one.
   both the query's identity **and** camera are excluded, then **CMC (Rank-k)** and
   **mean Average Precision (mAP)** are computed. Features are L2-normalized
   (cosine) with horizontal-flip test-time augmentation; **k-reciprocal
-  re-ranking** is reported additionally.
+  re-ranking** is reported additionally and uses the squared Euclidean
+  distance, exactly like the Zhong et al. and Bag of Tricks reference code.
+- **Junk and distractors:** junk images (pid `-1`) are dropped when the dataset
+  is loaded, and distractors (pid `0`) stay in the gallery as negatives.
+- **Average precision:** AP is the non-interpolated mean of the precision at
+  each true-match rank, as in Luo et al.'s reid-strong-baseline and torchreid.
+  The official MATLAB devkit uses a trapezoidal variant that gives slightly
+  different mAP.
+- **Model selection:** the reported numbers come from the final-epoch weights
+  evaluated once on the test split, never from a checkpoint chosen by test mAP.
 - **Metrics:** measured on Market-1501 from a single training run (seed 42, 60
   epochs). The reference column lists figures reported by Luo et al. (2019) for
-  the same strong baseline.
+  the original strong-baseline recipe, for comparison only.
+
+> **Note:** the numbers below predate the updated evaluation protocol
+> (final-epoch weights and squared-distance re-ranking) and will be re-measured
+> shortly. The reference figures were measured without flip test-time
+> augmentation.
 
 | Setting                   |  mAP   | Rank-1 | Rank-5 | Rank-10 | Reference (Luo et al., 2019) |
 | ------------------------- | :----: | :----: | :----: | :-----: | :--------------------------: |
@@ -84,9 +114,11 @@ a biometric identification system and must not be used as one.
 
 ## Limitations
 
-- **Domain specificity:** trained and evaluated only on Market-1501. Direct
-  cross-dataset transfer (e.g. to DukeMTMC-reID / MSMT17) typically loses ~25–30
-  mAP points.
+- **Domain specificity:** trained and evaluated only on Market-1501, and
+  cross-dataset transfer has not been measured for this model. The literature
+  reports that direct transfer to another dataset such as MSMT17 or
+  DukeMTMC-reID (which has since been withdrawn by its creators) typically loses
+  ~25–30 mAP points.
 - **Unmeasured demographic performance:** accuracy across age, gender, skin tone,
   body type, and attire is **not characterized**; it may be uneven.
 - **Failure modes:** occlusion, low resolution, extreme lighting/viewpoint
@@ -105,8 +137,14 @@ a human in the loop, should audit for demographic disparity on representative
 data before any real use, and should comply with applicable privacy and
 biometric-data law such as the GDPR and its equivalents.
 
-The bundled demo binds to `localhost` by default, ships no trained weights, and
-supports optional authentication (`--auth`) for any networked deployment.
+The local Gradio demo (`app/gradio_app.py`) binds to `127.0.0.1` by default,
+ships no trained weights, and supports optional authentication (`--auth`) for
+any networked deployment. The optional Hugging Face Space in `space/` is
+different. It is public, unauthenticated and CPU-only, compares two uploaded
+crops, stores nothing, has flagging disabled, and applies an uncalibrated
+cosine threshold of 0.5, so its verdict describes embedding similarity and is
+not an identification. It hosts no gallery, and any example images must be
+ones the Space owner has the right to publish, never Market-1501 crops.
 
 ## Caveats and recommendations
 

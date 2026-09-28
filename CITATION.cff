@@ -29,7 +29,7 @@ authors:
     email: vardhjain20@gmail.com
     alias: vardhjain
 references:
-  - type: article
+  - type: conference-paper
     title: "Bag of Tricks and a Strong Baseline for Deep Person Re-Identification"
     authors:
       - family-names: Luo
