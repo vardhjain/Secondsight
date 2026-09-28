@@ -5,5 +5,5 @@
 # provides the importable `reid` package used by app.py.
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch>=2.3
-torchvision>=0.18
+torchvision>=0.29.0+cpu
 secondsight @ git+https://github.com/vardhjain/Secondsight.git@main
