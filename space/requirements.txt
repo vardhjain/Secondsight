@@ -4,6 +4,6 @@
 # installs the core Secondsight library (no optional extras) from GitHub, which
 # provides the importable `reid` package used by app.py.
 --extra-index-url https://download.pytorch.org/whl/cpu
-torch>=2.3
+torch>=2.14.0+cpu
 torchvision>=0.18
 secondsight @ git+https://github.com/vardhjain/Secondsight.git@main
