@@ -1,15 +1,19 @@
 # Docker Compose for Secondsight.
 #
-# Brings up the interactive Gradio Re-ID demo, exposing it on host port 7860.
-# Datasets, weights, and outputs are mounted from the host so the image stays
-# lean and stateless.
+# Brings up the interactive Gradio Re-ID demo on http://localhost:7860. The port
+# is published on the host loopback interface only, because the demo has no
+# authentication by default. Weights and the dataset are mounted read-only from
+# the host so the image stays lean and stateless.
 #
 # Usage:
 #   docker compose up --build
 # then open http://localhost:7860
 #
-# Provide a trained checkpoint by placing it at ./outputs/best.pth (the default
-# REID_WEIGHTS path) or by overriding REID_WEIGHTS in a local .env file.
+# Put a trained checkpoint at ./outputs/best.pth. For gallery search, point
+# SECONDSIGHT_DATA_DIR at the host folder that directly contains
+# bounding_box_test/ (the path printed by `make download`). Both host paths can
+# be set in a local .env file, which compose reads automatically; see
+# .env.example. The in-container paths below are fixed and should not change.
 
 services:
   demo:
@@ -19,16 +23,15 @@ services:
     image: secondsight:latest
     container_name: reid-demo
     ports:
-      - "7860:7860"
+      - "127.0.0.1:7860:7860"
     environment:
-      # Override these via a local .env file if your layout differs.
-      REID_WEIGHTS: ${REID_WEIGHTS:-/app/outputs/best.pth}
-      REID_DATA_ROOT: ${REID_DATA_ROOT:-/app/data}
+      REID_WEIGHTS: /app/outputs/best.pth
+      REID_DATA_ROOT: /app/data
       GRADIO_SERVER_NAME: "0.0.0.0"
       GRADIO_SERVER_PORT: "7860"
     volumes:
-      # Trained weights and run artifacts (best.pth, last.pth, logs).
-      - ./outputs:/app/outputs
-      # Optional: mount the Market-1501 dataset for gallery browsing.
-      - ./data:/app/data
+      # Trained weights and run artifacts (best.pth, model_final.pth, logs).
+      - ${SECONDSIGHT_OUTPUTS_DIR:-./outputs}:/app/outputs:ro
+      # Optional: the Market-1501 dataset root for gallery browsing.
+      - ${SECONDSIGHT_DATA_DIR:-./data}:/app/data:ro
     restart: unless-stopped

@@ -2,14 +2,17 @@ name: CI
 
 # Continuous integration for Secondsight.
 #
-# Runs on every push and pull request targeting ``main``:
-#   * ``lint``  -> ruff lint + format check (single Python version, fast).
-#   * ``test``  -> pytest on a CPU-only matrix of Python 3.10 / 3.11 / 3.12.
-#   * ``typecheck`` -> mypy (non-blocking; informational only).
+# Runs on every push and pull request targeting ``main``. The ``lint`` job runs the
+# pre-commit hooks (ruff lint and format plus file hygiene), which keeps hook
+# versions in one place. The ``test`` job runs pytest on Python 3.10 through 3.14,
+# with coverage on the 3.11 leg. The ``typecheck`` job runs mypy and is blocking.
+# The ``build`` job builds the sdist and wheel, installs the wheel into a clean
+# environment and runs every console entry point. The ``docker`` job builds the
+# demo image, starts it and requests the page from the host.
 #
-# Dependencies are installed with `uv` (astral-sh/setup-uv) for fast, cached
-# installs. CPU-only PyTorch wheels are pulled from the official PyTorch CPU
-# index via ``UV_TORCH_BACKEND`` to keep the runners small and quick.
+# Dependencies come from the committed uv.lock (``uv sync --locked``). The
+# ``--extra cpu`` selector makes uv install CPU-only torch and torchvision from
+# the PyTorch CPU index declared in pyproject.toml, which keeps runners small.
 
 on:
   push:
@@ -25,115 +28,142 @@ concurrency:
 permissions:
   contents: read
 
-env:
-  # Install CPU-only torch/torchvision wheels. uv understands this hint and
-  # rewrites the index for the torch family automatically.
-  UV_TORCH_BACKEND: cpu
-
 jobs:
   lint:
-    name: Lint and format
+    name: Lint and format (pre-commit)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
+          python-version: "3.11"
           enable-cache: true
-          cache-dependency-glob: "pyproject.toml"
+          cache-suffix: ${{ github.job }}
 
-      - name: Set up Python
-        run: uv python install 3.11
-
-      - name: Install dependencies
-        run: uv sync --extra dev
-
-      - name: Ruff lint
-        run: uv run ruff check .
-
-      - name: Ruff format check
-        run: uv run ruff format --check .
+      - name: Run pre-commit hooks
+        run: uvx pre-commit@4.6.2 run --all-files --show-diff-on-failure
 
   test:
     name: Test (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
+          python-version: ${{ matrix.python-version }}
           enable-cache: true
-          cache-dependency-glob: "pyproject.toml"
-
-      - name: Set up Python ${{ matrix.python-version }}
-        run: uv python install ${{ matrix.python-version }}
+          cache-suffix: ${{ github.job }}-${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: uv sync --extra dev --python ${{ matrix.python-version }}
+        run: uv sync --locked --extra cpu --extra all --extra dev
 
       - name: Run tests
-        run: uv run --python ${{ matrix.python-version }} pytest -q
+        if: matrix.python-version != '3.11'
+        run: uv run --no-sync pytest
+
+      - name: Run tests with coverage
+        if: matrix.python-version == '3.11'
+        run: uv run --no-sync pytest --cov --cov-report=term-missing --cov-report=xml
 
   typecheck:
-    name: Type check (mypy, non-blocking)
+    name: Type check (mypy)
     runs-on: ubuntu-latest
-    # Informational only: failures here do not fail the workflow.
-    continue-on-error: true
+    timeout-minutes: 15
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
+          python-version: "3.11"
           enable-cache: true
-          cache-dependency-glob: "pyproject.toml"
-
-      - name: Set up Python
-        run: uv python install 3.11
+          cache-suffix: ${{ github.job }}
 
       - name: Install dependencies
-        run: uv sync --extra dev
+        run: uv sync --locked --extra cpu --extra all --extra dev
 
       - name: Run mypy
-        run: uv run mypy src/reid
+        run: uv run --no-sync mypy src/reid
 
   build:
     name: Build distribution
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
+          python-version: "3.11"
           enable-cache: true
-          cache-dependency-glob: "pyproject.toml"
+          cache-suffix: ${{ github.job }}
 
-      - name: Set up Python
-        run: uv python install 3.11
-
+      # --no-sources proves the build does not depend on the uv-only settings.
       - name: Build sdist and wheel
-        run: uv build
+        run: uv build --no-sources
 
-      - name: Verify the wheel installs and imports cleanly
+      # The check environment gets only the core dependencies, so the entry points
+      # must start without the optional extras installed.
+      - name: Verify the wheel installs and every entry point runs
         run: |
           uv venv /tmp/build-check
-          uv pip install --python /tmp/build-check dist/*.whl
+          uv pip install --python /tmp/build-check --torch-backend cpu dist/*.whl
           /tmp/build-check/bin/python -c "import reid; print('reid', reid.__version__)"
+          for cli in reid-download reid-train reid-evaluate reid-visualize; do
+            /tmp/build-check/bin/"$cli" --help > /dev/null
+          done
 
       - name: Upload distribution artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: dist
           path: dist/*
           if-no-files-found: error
+
+  docker:
+    name: Docker image smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build the image
+        run: docker build -t secondsight:ci .
+
+      # Without weights the demo starts with a randomly initialized model, which is
+      # enough to prove the server is reachable through the published port.
+      - name: Start the demo and request it from the host
+        run: |
+          docker run -d --name reid-demo -p 127.0.0.1:7860:7860 secondsight:ci
+          curl --retry 60 --retry-delay 3 --retry-all-errors -fsS -o /dev/null \
+            http://127.0.0.1:7860/
+
+      - name: Show container logs
+        if: always()
+        run: docker logs reid-demo || true

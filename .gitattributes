@@ -6,6 +6,7 @@
 *.py     text eol=lf
 *.pyi    text eol=lf
 *.toml   text eol=lf
+*.lock   text eol=lf
 *.cfg    text eol=lf
 *.ini    text eol=lf
 *.yaml   text eol=lf
@@ -33,3 +34,4 @@ Dockerfile text eol=lf
 # Collapse generated/large artifacts in GitHub diffs and language stats.
 *.ipynb        linguist-documentation
 docs/images/*  linguist-documentation
+uv.lock        linguist-generated=true
