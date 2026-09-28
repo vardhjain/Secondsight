@@ -9,6 +9,12 @@ Train pipeline (strong baseline): resize, random horizontal flip, pad +
 random crop (spatial jitter), tensor conversion, ImageNet normalisation and
 optional random erasing. Test pipeline: resize, tensor conversion and
 normalisation only.
+
+Random erasing follows the Bag of Tricks recipe, erasing a rectangle that covers
+between 2% and 40% of the image with an aspect ratio between 0.3 and 1/0.3. It
+runs after normalisation and fills the erased pixels with 0 in normalised space,
+which corresponds to the ImageNet mean pixel. The reference implementation
+writes fixed per-channel constants instead, a difference with negligible effect.
 """
 
 from __future__ import annotations
@@ -25,6 +31,11 @@ __all__ = ["IMAGENET_MEAN", "IMAGENET_STD", "build_transforms"]
 # ResNet backbone.
 IMAGENET_MEAN: list[float] = [0.485, 0.456, 0.406]
 IMAGENET_STD: list[float] = [0.229, 0.224, 0.225]
+
+# Random erasing area range (fraction of the image) and aspect ratio range, as in
+# the reid-strong-baseline reference (sl=0.02, sh=0.4, r1=0.3).
+_RE_SCALE: tuple[float, float] = (0.02, 0.4)
+_RE_RATIO: tuple[float, float] = (0.3, 1 / 0.3)
 
 
 def build_transforms(cfg: DataConfig, is_train: bool) -> Callable:
@@ -57,8 +68,9 @@ def build_transforms(cfg: DataConfig, is_train: bool) -> Callable:
             pipeline.append(
                 transforms.RandomErasing(
                     p=cfg.re_prob,
-                    scale=(0.02, 0.33),
-                    ratio=(0.3, 3.3),
+                    scale=_RE_SCALE,
+                    ratio=_RE_RATIO,
+                    value=0,
                 )
             )
         return transforms.Compose(pipeline)

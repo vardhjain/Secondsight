@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 from torch.utils.data import Sampler
 
 if TYPE_CHECKING:
-    from reid.data.dataset import Market1501
+    from reid.data.dataset import ImageListDataset
 
 __all__ = ["RandomIdentitySampler"]
 
@@ -33,7 +33,8 @@ class RandomIdentitySampler(Sampler[int]):
     multiple disjoint groups across an epoch.
 
     Args:
-        dataset: A :class:`reid.data.dataset.Market1501` (train subset). Its
+        dataset: A training dataset such as :class:`reid.data.dataset.Market1501`
+            (train subset) or :class:`reid.data.dataset.ImageListDataset`. Its
             ``pids`` and ``pid2label`` attributes are used to group indices by
             contiguous label.
         batch_size: Total number of samples per batch. Must be a multiple of
@@ -41,13 +42,14 @@ class RandomIdentitySampler(Sampler[int]):
         num_instances: Number of instances (``K``) sampled per identity.
 
     Raises:
-        ValueError: If ``batch_size`` is not divisible by ``num_instances`` or
-            if ``batch_size < num_instances``.
+        ValueError: If ``batch_size`` is not divisible by ``num_instances``, if
+            ``batch_size < num_instances``, or if the dataset has fewer than
+            ``P`` identities (which would make every epoch empty).
     """
 
     def __init__(
         self,
-        dataset: Market1501,
+        dataset: ImageListDataset,
         batch_size: int,
         num_instances: int,
     ) -> None:
@@ -74,11 +76,19 @@ class RandomIdentitySampler(Sampler[int]):
             self.index_dic[label].append(index)
         self.labels: list[int] = list(self.index_dic.keys())
 
-        # Epoch length = number of complete PK batches the sampler can form,
-        # times the batch size. Each identity contributes ``floor(n / K)`` full
-        # K-sized groups (short identities are oversampled up to one group), and
-        # every batch consumes ``num_pids_per_batch`` groups. Computed once here
-        # so ``len()`` is stable across epochs and aligned to ``batch_size``.
+        if len(self.labels) < self.num_pids_per_batch:
+            raise ValueError(
+                f"Need at least {self.num_pids_per_batch} identities for "
+                f"batch_size={batch_size} and num_instances={num_instances}; "
+                f"got {len(self.labels)}."
+            )
+
+        # Upper bound on the epoch length. Each identity contributes
+        # ``floor(n / K)`` full K-sized groups (short identities are oversampled
+        # up to one group) and every batch consumes ``num_pids_per_batch`` groups.
+        # Iteration can strand a few groups at the end of an epoch, so it may
+        # yield slightly fewer indices. Computed once here so ``len()`` is stable
+        # across epochs and aligned to ``batch_size``.
         total_groups = sum(
             max(len(idxs), self.num_instances) // self.num_instances
             for idxs in self.index_dic.values()
@@ -120,10 +130,12 @@ class RandomIdentitySampler(Sampler[int]):
         return iter(final_idxs)
 
     def __len__(self) -> int:
-        """Return the number of indices produced per epoch.
+        """Return a stable, batch-aligned upper bound on the indices per epoch.
 
-        Equal to the number of complete ``P * K`` batches that can be formed
-        multiplied by ``batch_size``. This is a stable, batch-aligned value computed
-        once at construction time (never mutated during iteration).
+        Because identities are drawn at random, a few groups may be stranded at
+        the end of an epoch, so iteration can yield slightly fewer indices than
+        this value (always a multiple of ``batch_size``). The bound is computed
+        once at construction time and never changes during iteration, matching
+        the reference strong-baseline sampler.
         """
         return self.length
