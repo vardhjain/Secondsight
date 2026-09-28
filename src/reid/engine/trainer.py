@@ -4,13 +4,18 @@ This module implements :class:`Trainer`, which orchestrates a full training run:
 
 * a per-epoch loop with AMP mixed precision (CUDA-only, with a transparent CPU
   fallback),
-* a combined identity + triplet (+ optional center) loss,
+* a combined identity + triplet (+ optional center) loss, always computed in
+  float32 outside the autocast region because distance math is precision
+  sensitive,
 * an optional separate SGD optimizer for the center-loss parameters, using the
   standard "un-scale the center gradients by ``1 / center_weight``" trick so
   that the center term is optimized at its true magnitude,
 * a warmup-aware learning-rate scheduler stepped once per epoch,
-* periodic evaluation through an injected evaluator, and
-* checkpointing of the best-by-mAP model plus a rolling ``last.pth``.
+* periodic evaluation through an injected evaluator, every ``eval_period``
+  epochs and always on the final epoch,
+* checkpointing of the best-by-mAP model plus a rolling ``last.pth``, with
+  machine-specific paths scrubbed from the embedded config, and
+* a ``history.json`` record of the per-epoch loss, learning rate and metrics.
 
 Heavy / optional dependencies (``tqdm``) are imported lazily so the module is
 importable in minimal environments. Library logging is used throughout (never
@@ -19,10 +24,11 @@ importable in minimal environments. Library logging is used throughout (never
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import torch
 from torch import nn
@@ -32,6 +38,8 @@ from reid.utils.device import resolve_device
 from reid.utils.meters import AverageMeter
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from torch.optim import Optimizer
     from torch.optim.lr_scheduler import LRScheduler
     from torch.utils.data import DataLoader
@@ -56,9 +64,10 @@ class Trainer:
         cfg: The complete experiment configuration.
         train_loader: Iterable yielding ``(images, labels, camids)`` batches.
         evaluator: Optional evaluator run every ``cfg.train.eval_period``
-            epochs during training. A separate final evaluation on the last
-            weights is the caller's responsibility (see ``scripts/train.py``).
-            Defaults to ``None``.
+            epochs and on the final epoch, so ``best.pth`` always exists when
+            an evaluator is given. It is called with ``rerank=False``. The
+            headline test-split results are the caller's responsibility (see
+            :mod:`reid.cli.train`). Defaults to ``None``.
         logger: Optional logger. If ``None`` a module logger is used.
 
     Attributes:
@@ -147,7 +156,10 @@ class Trainer:
 
             with torch.amp.autocast("cuda", enabled=self.use_amp):
                 cls_score, global_feat = self.model(images)
-                loss, components = self.loss_fn(cls_score, global_feat, labels)
+            # The loss runs in float32 outside autocast. The triplet and center
+            # distances expand ||a||^2 + ||b||^2 - 2ab, which cancels badly (and
+            # can overflow) when the matmul is done in float16.
+            loss, components = self.loss_fn(cls_score.float(), global_feat.float(), labels)
 
             # Backward + step through the grad scaler (a no-op scale of 1.0 when
             # AMP is disabled, so the same code path is CPU-safe).
@@ -204,15 +216,21 @@ class Trainer:
     def train(self) -> dict[str, Any]:
         """Run the full training loop with periodic evaluation and checkpointing.
 
+        The evaluator runs every ``eval_period`` epochs and on the final epoch.
+        The run summary is written to ``<output_dir>/history.json`` after every
+        epoch, so a partial record survives an interrupted run.
+
         Returns:
-            A dictionary with the per-epoch ``history`` and the best metrics
-            observed (``best_mAP`` and, when available, the rank-1 at the best
-            epoch and the best epoch index).
+            A dictionary with the per-epoch ``history``, the best metrics
+            observed (``best_mAP``, the rank-1 at the best epoch, and the
+            one-based ``best_epoch``, which is ``-1`` when no evaluation ran)
+            and the ``elapsed_seconds`` of the run.
         """
         start = time.time()
+        max_epochs = self.cfg.train.max_epochs
         self.logger.info(
             "Starting training: %d epochs on %s (AMP=%s)",
-            self.cfg.train.max_epochs,
+            max_epochs,
             self.device,
             self.use_amp,
         )
@@ -220,7 +238,7 @@ class Trainer:
         best_rank1 = 0.0
         best_epoch = -1
 
-        for epoch in range(self.cfg.train.max_epochs):
+        for epoch in range(max_epochs):
             # Capture the LR used DURING this epoch before stepping the scheduler,
             # so history["lr"] matches the per-step and end-of-epoch logs.
             lr_used = self.optimizer.param_groups[0]["lr"]
@@ -234,21 +252,27 @@ class Trainer:
             map_value: float | None = None
             rank1_value: float | None = None
 
-            do_eval = self.evaluator is not None and (epoch + 1) % self.cfg.train.eval_period == 0
-            if do_eval:
+            # Always evaluate the final epoch as well, so short runs (max_epochs
+            # below eval_period) and trailing epochs still compete for best.pth.
+            is_last = epoch + 1 == max_epochs
+            periodic = (epoch + 1) % self.cfg.train.eval_period == 0
+            if self.evaluator is not None and (periodic or is_last):
                 map_value, rank1_value = self._run_evaluation(epoch)
 
             self.history["mAP"].append(map_value)
             self.history["rank1"].append(rank1_value)
 
-            # Track the best-by-mAP checkpoint.
-            is_best = map_value is not None and map_value > self.best_map
-            if is_best:
-                self.best_map = float(map_value)
-                best_rank1 = float(rank1_value) if rank1_value is not None else 0.0
+            # Track the best-by-mAP checkpoint. The first evaluation always
+            # counts, so best.pth exists even when every mAP is exactly zero.
+            is_best = False
+            if map_value is not None and (best_epoch < 0 or map_value > self.best_map):
+                is_best = True
+                self.best_map = map_value
+                best_rank1 = rank1_value if rank1_value is not None else 0.0
                 best_epoch = epoch + 1
 
             self._save_checkpoints(epoch, is_best=is_best)
+            self._write_history(best_rank1, best_epoch, time.time() - start)
 
         elapsed = time.time() - start
         self.logger.info(
@@ -257,14 +281,31 @@ class Trainer:
             self.best_map,
             best_epoch,
         )
+        return self._write_history(best_rank1, best_epoch, elapsed)
 
-        return {
+    def _write_history(self, best_rank1: float, best_epoch: int, elapsed: float) -> dict[str, Any]:
+        """Build the run summary and write it atomically to ``history.json``.
+
+        Args:
+            best_rank1: Rank-1 accuracy at the best epoch so far.
+            best_epoch: One-based best epoch so far, or ``-1`` before any eval.
+            elapsed: Wall-clock seconds since training started.
+
+        Returns:
+            The summary dictionary that was written.
+        """
+        summary: dict[str, Any] = {
             "history": self.history,
             "best_mAP": self.best_map,
             "best_rank1": best_rank1,
             "best_epoch": best_epoch,
             "elapsed_seconds": elapsed,
         }
+        path = self.output_dir / "history.json"
+        tmp = path.with_name(path.name + ".tmp")
+        tmp.write_text(json.dumps(summary, indent=2), encoding="utf-8")
+        tmp.replace(path)
+        return summary
 
     def _run_evaluation(self, epoch: int) -> tuple[float, float]:
         """Run the injected evaluator and log the headline metrics.
@@ -285,14 +326,14 @@ class Trainer:
         metrics = self.evaluator.evaluate(rerank=False)
         self.model.train()
 
-        map_value = float(metrics.get("mAP", 0.0))
-        rank1_value = float(metrics.get("rank1", 0.0))
+        map_value = _metric(metrics, "mAP")
+        rank1_value = _metric(metrics, "rank1")
         self.logger.info(
             "Eval @ epoch %d | mAP=%.4f | Rank-1=%.4f | Rank-5=%.4f",
             epoch + 1,
             map_value,
             rank1_value,
-            float(metrics.get("rank5", 0.0)),
+            _metric(metrics, "rank5"),
         )
         return map_value, rank1_value
 
@@ -305,12 +346,14 @@ class Trainer:
         """
         # Persist only what a consumer can actually load: the model weights for
         # evaluation/inference, plus provenance metadata. Optimizer/scheduler
-        # resume state is intentionally not saved (no resume path exists).
+        # resume state is intentionally not saved (no resume path exists). The
+        # portable config drops absolute local paths, because checkpoints may
+        # be published (for example to the Hugging Face Space).
         state = {
             "epoch": epoch + 1,
             "model": self.model.state_dict(),
             "best_mAP": self.best_map,
-            "config": self.cfg.to_dict(),
+            "config": self.cfg.to_portable_dict(),
         }
 
         save_checkpoint(state, self.output_dir / "last.pth")
@@ -322,7 +365,7 @@ class Trainer:
                 self.output_dir / "best.pth",
             )
 
-    def _maybe_tqdm(self, loader: DataLoader, epoch: int):
+    def _maybe_tqdm(self, loader: DataLoader, epoch: int) -> Iterable[Any]:
         """Wrap the loader in a tqdm bar if tqdm is installed, else pass through.
 
         Args:
@@ -373,3 +416,16 @@ class Trainer:
             tri_meter.avg,
             lr,
         )
+
+
+def _metric(metrics: dict[str, object], key: str) -> float:
+    """Read one scalar metric from an evaluator result as a float.
+
+    Args:
+        metrics: The mapping returned by ``Evaluator.evaluate``.
+        key: The metric name, for example ``"mAP"``.
+
+    Returns:
+        The metric as a Python float, or ``0.0`` when it is missing.
+    """
+    return float(cast(float, metrics.get(key, 0.0)))

@@ -31,7 +31,8 @@ def set_seed(seed: int = 42, deterministic: bool = True) -> None:
             ``CUBLAS_WORKSPACE_CONFIG``. This trades some throughput for
             run-to-run reproducibility. Note ``PYTHONHASHSEED`` only affects
             subprocesses spawned afterward, since CPython reads it once at
-            startup.
+            startup. When ``False``, deterministic mode is switched off and
+            ``cudnn.benchmark`` is enabled for faster fixed-shape training.
     """
     random.seed(seed)
     np.random.seed(seed)
@@ -52,6 +53,10 @@ def set_seed(seed: int = 42, deterministic: bool = True) -> None:
         # on ops that lack a deterministic implementation.
         torch.use_deterministic_algorithms(True, warn_only=True)
     else:
+        # Undo any earlier deterministic call in this process (for example a
+        # previous run in the same notebook kernel), then let cuDNN autotune.
+        torch.backends.cudnn.deterministic = False
+        torch.use_deterministic_algorithms(False)
         torch.backends.cudnn.benchmark = True
 
     logger.debug("Seed set to %d (deterministic=%s).", seed, deterministic)

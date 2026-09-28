@@ -3,12 +3,12 @@
 This module provides two warmup-enabled schedulers and a factory that selects
 between them from configuration:
 
-* :class:`WarmupMultiStepLR` -- linear (or constant) warmup followed by a
+* :class:`WarmupMultiStepLR` applies a linear (or constant) warmup followed by a
   decoupled multi-step decay at fixed milestone epochs. This is the schedule
   used by the BNNeck strong baseline and is *decoupled* in the sense that the
   warmup factor and the milestone decay are computed independently and then
   multiplied, so they compose cleanly.
-* :class:`WarmupCosineLR` -- linear warmup followed by cosine annealing to a
+* :class:`WarmupCosineLR` applies a linear warmup followed by cosine annealing to a
   minimum learning rate.
 
 Both schedulers are *epoch-stepped*: call ``scheduler.step()`` once per epoch.
@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING
 from torch.optim.lr_scheduler import LRScheduler
 
 if TYPE_CHECKING:
+    from torch import Tensor
     from torch.optim import Optimizer
 
     from reid.config import Config
@@ -97,7 +98,7 @@ class WarmupMultiStepLR(LRScheduler):
         self.warmup_method = warmup_method
         super().__init__(optimizer, last_epoch)
 
-    def get_lr(self) -> list[float]:
+    def get_lr(self) -> list[float | Tensor]:
         """Compute the learning rate for each parameter group at the current epoch.
 
         Returns:
@@ -145,7 +146,7 @@ class WarmupCosineLR(LRScheduler):
         self.eta_min = eta_min
         super().__init__(optimizer, last_epoch)
 
-    def get_lr(self) -> list[float]:
+    def get_lr(self) -> list[float | Tensor]:
         """Compute the learning rate for each parameter group at the current epoch.
 
         Returns:
