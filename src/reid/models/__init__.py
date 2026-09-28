@@ -1,12 +1,12 @@
 """Model components for the Re-ID toolkit.
 
-This subpackage exposes the building blocks of the Re-ID network:
-
-* :class:`ReIDModel` and :func:`build_model` -- the full ResNet-50 + BNNeck
-  model and its config-driven factory.
-* :func:`build_backbone` -- the ResNet-50 convolutional feature extractor with
-  optional ``last_stride=1`` and IBN support.
-* :class:`GeMPooling` and :func:`build_pooling` -- global pooling layers.
+This subpackage exposes the building blocks of the Re-ID network.
+:class:`ReIDModel` and :func:`build_model` provide the full ResNet-50 + BNNeck
+model and its config-driven factory, and :func:`load_trained_model` rebuilds a
+trained model from a checkpoint. :func:`build_backbone` constructs the
+ResNet-50 convolutional feature extractor with optional ``last_stride=1`` and
+IBN support, while :class:`GeMPooling` and :func:`build_pooling` provide the
+global pooling layers.
 
 Importing this subpackage is lightweight: ``torchvision`` is only imported when
 :func:`build_backbone` (directly or via :func:`build_model`) is actually
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from reid.models.backbone import build_backbone
 from reid.models.pooling import GeMPooling, build_pooling
-from reid.models.reid_model import ReIDModel, build_model
+from reid.models.reid_model import ReIDModel, build_model, load_trained_model
 
 __all__ = [
     "GeMPooling",
@@ -25,4 +25,5 @@ __all__ = [
     "build_backbone",
     "build_model",
     "build_pooling",
+    "load_trained_model",
 ]

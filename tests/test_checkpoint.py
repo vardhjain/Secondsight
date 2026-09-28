@@ -1,22 +1,27 @@
 """Tests for checkpoint (de)serialization (:mod:`reid.utils.checkpoint`).
 
-CPU-only and ``torch``-only: a tiny ``nn.Linear`` stands in for a real model so
-the save/load round-trips, ``state_dict`` key handling, and classifier-size
-inference can be checked without a GPU, dataset, or torchvision.
+These tests need only ``torch`` and run on the CPU. Tiny ``nn.Linear`` modules
+stand in for a real model, so the save and load round trips, ``state_dict`` key
+handling, strict loading, embedded-config lookup and classifier-size inference
+can be checked without a GPU, dataset, or torchvision.
 """
 
 from __future__ import annotations
 
+import logging
+from collections import OrderedDict
 from pathlib import Path
 
 import pytest
 import torch
 from torch import nn
 
+from reid.config import Config
 from reid.utils.checkpoint import (
     infer_num_classes_from_checkpoint,
     load_checkpoint,
     load_model,
+    read_checkpoint_config,
     save_checkpoint,
     save_model,
 )
@@ -98,3 +103,126 @@ def test_infer_num_classes_falls_back(tmp_path: Path) -> None:
     path = tmp_path / "no_clf.pth"
     torch.save({"state_dict": {"backbone.weight": torch.zeros(3, 3)}}, path)
     assert infer_num_classes_from_checkpoint(path, fallback=42) == 42
+
+
+def _classifier_net() -> nn.Module:
+    """Return a tiny module with a ``classifier`` head of five classes.
+
+    Returns:
+        A seeded ``nn.Sequential`` with ``backbone`` and ``classifier`` layers.
+    """
+    torch.manual_seed(0)
+    return nn.Sequential(
+        OrderedDict(backbone=nn.Linear(4, 8), classifier=nn.Linear(8, 5, bias=False))
+    )
+
+
+def _assert_same_weights(a: nn.Module, b: nn.Module) -> None:
+    """Assert two modules hold identical tensors.
+
+    Args:
+        a: First module.
+        b: Second module.
+    """
+    for (ka, va), (kb, vb) in zip(a.state_dict().items(), b.state_dict().items(), strict=True):
+        assert ka == kb
+        assert torch.equal(va, vb)
+
+
+def test_trainer_checkpoint_round_trip_weights_only(tmp_path: Path) -> None:
+    """The trainer format loads with the safe unpickler, config included."""
+    src = _classifier_net()
+    config = Config().to_dict()
+    path = tmp_path / "best.pth"
+    save_checkpoint(
+        {"epoch": 1, "model": src.state_dict(), "best_mAP": 0.5, "config": config}, path
+    )
+
+    loaded = torch.load(path, map_location="cpu", weights_only=True)
+    assert loaded["config"] == config
+    assert load_checkpoint(path)["best_mAP"] == 0.5
+    assert infer_num_classes_from_checkpoint(path, fallback=0) == 5
+    assert read_checkpoint_config(path) == config
+
+    dst = nn.Sequential(
+        OrderedDict(backbone=nn.Linear(4, 8), classifier=nn.Linear(8, 5, bias=False))
+    )
+    load_model(dst, path)
+    _assert_same_weights(src, dst)
+
+
+def test_save_model_checkpoint_round_trip_weights_only(tmp_path: Path) -> None:
+    """The ``save_model`` format round-trips its metadata and embedded config."""
+    src = _classifier_net()
+    config = Config().to_dict()
+    path = tmp_path / "model_final.pth"
+    save_model(src, path, mAP=0.5, epoch=7, config=config)
+
+    loaded = torch.load(path, map_location="cpu", weights_only=True)
+    assert loaded["meta"] == {"mAP": 0.5, "epoch": 7, "config": config}
+    assert infer_num_classes_from_checkpoint(path, fallback=0) == 5
+    assert read_checkpoint_config(path) == config
+
+
+def test_load_model_bare_state_dict(tmp_path: Path) -> None:
+    """A bare ``state_dict`` file loads directly."""
+    src = _classifier_net()
+    path = tmp_path / "bare.pth"
+    torch.save(src.state_dict(), path)
+
+    dst = nn.Sequential(
+        OrderedDict(backbone=nn.Linear(4, 8), classifier=nn.Linear(8, 5, bias=False))
+    )
+    load_model(dst, path)
+    _assert_same_weights(src, dst)
+    assert read_checkpoint_config(path) is None
+
+
+def test_load_model_strict_mismatch_raises(tmp_path: Path) -> None:
+    """Missing or unexpected keys raise by default and name the keys."""
+    path = tmp_path / "linear.pth"
+    save_model(nn.Linear(4, 3), path)
+
+    with pytest.raises(RuntimeError, match=r"Missing keys: \['0.weight', '0.bias'\]"):
+        load_model(nn.Sequential(nn.Linear(4, 3)), path)
+
+
+def test_load_model_shape_mismatch_raises(tmp_path: Path) -> None:
+    """A tensor of the wrong shape raises even when not strict."""
+    path = tmp_path / "linear.pth"
+    save_model(nn.Linear(4, 3), path)
+    with pytest.raises(RuntimeError, match="do not fit the model"):
+        load_model(nn.Linear(4, 2), path, strict=False)
+
+
+def test_load_model_non_strict_logs_mismatch(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """With ``strict=False`` mismatched keys are only logged."""
+    path = tmp_path / "linear.pth"
+    save_model(nn.Linear(4, 3), path)
+
+    with caplog.at_level(logging.WARNING, logger="reid"):
+        load_model(nn.Sequential(nn.Linear(4, 3)), path, strict=False)
+    assert "Missing keys" in caplog.text
+    assert "Unexpected keys" in caplog.text
+
+
+def test_read_checkpoint_config_handles_absent_and_unreadable(tmp_path: Path) -> None:
+    """Missing files, corrupt files and config-free checkpoints give ``None``."""
+    assert read_checkpoint_config(tmp_path / "missing.pth") is None
+
+    corrupt = tmp_path / "corrupt.pth"
+    corrupt.write_bytes(b"not a checkpoint")
+    assert read_checkpoint_config(corrupt) is None
+
+    no_config = tmp_path / "no_config.pth"
+    save_model(nn.Linear(2, 2), no_config, mAP=0.1)
+    assert read_checkpoint_config(no_config) is None
+
+
+def test_save_leaves_no_temporary_files(tmp_path: Path) -> None:
+    """The atomic write leaves no ``*.tmp`` file behind."""
+    save_checkpoint({"epoch": 1}, tmp_path / "ckpt.pth")
+    save_model(nn.Linear(2, 2), tmp_path / "model.pth")
+    assert not list(tmp_path.glob("*.tmp"))

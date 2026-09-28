@@ -1,12 +1,11 @@
 """Loss functions for Person Re-Identification.
 
-This subpackage bundles the loss components of the BNNeck strong baseline:
-
-* :class:`CrossEntropyLabelSmooth` -- label-smoothing identity classification.
-* :class:`TripletLoss` -- batch-hard triplet loss (with optional soft margin).
-* :class:`CenterLoss` -- learnable per-class center loss (optional).
-* :class:`ReIDLoss` -- the weighted combination used during training, built via
-  :func:`build_loss`.
+This subpackage bundles the loss components of the BNNeck strong baseline.
+:class:`CrossEntropyLabelSmooth` handles label-smoothed identity
+classification, :class:`TripletLoss` implements batch-hard triplet mining with
+an optional soft margin, and :class:`CenterLoss` adds optional learnable
+per-class centers. :class:`ReIDLoss`, built via :func:`build_loss`, is the
+weighted combination used during training.
 
 All modules depend only on :mod:`torch` (and :mod:`reid.utils.distance`), so the
 subpackage stays importable without torchvision.

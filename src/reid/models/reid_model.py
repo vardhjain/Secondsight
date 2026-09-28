@@ -8,7 +8,7 @@ baseline (Luo et al., CVPRW 2019):
    convolutional feature map.
 #. A configurable global pooling layer (average, max or GeM) collapses the
    feature map into a global feature vector ``global_feat``.
-#. A **BNNeck** -- a 1D batch-norm layer whose bias is frozen -- normalizes the
+#. A **BNNeck**, a 1D batch-norm layer whose bias is frozen, normalizes the
    feature into ``feat`` before classification.
 #. A bias-free linear classifier maps ``feat`` to identity logits.
 
@@ -24,7 +24,10 @@ the BNNeck and a small-std normal initialization for the classifier.
 
 from __future__ import annotations
 
+import copy
+import dataclasses
 import logging
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from torch import Tensor, nn
@@ -46,31 +49,28 @@ def weights_init_kaiming(m: nn.Module) -> None:
     the initialization used for the BNNeck in the reference notebook.
 
     Args:
-        m: The module to initialize in-place.
+        m: The module to initialize in place.
     """
-    classname = m.__class__.__name__
-    if classname.find("Linear") != -1:
+    if isinstance(m, nn.Linear):
         nn.init.kaiming_normal_(m.weight, a=0, mode="fan_out")
         if m.bias is not None:
             nn.init.constant_(m.bias, 0.0)
-    elif classname.find("Conv") != -1:
+    elif isinstance(m, nn.modules.conv._ConvNd):
         nn.init.kaiming_normal_(m.weight, a=0, mode="fan_in")
         if m.bias is not None:
             nn.init.constant_(m.bias, 0.0)
-    elif classname.find("BatchNorm") != -1:
-        if m.affine:
-            nn.init.constant_(m.weight, 1.0)
-            nn.init.constant_(m.bias, 0.0)
+    elif isinstance(m, nn.modules.batchnorm._BatchNorm) and m.affine:
+        nn.init.constant_(m.weight, 1.0)
+        nn.init.constant_(m.bias, 0.0)
 
 
 def weights_init_classifier(m: nn.Module) -> None:
     """Initializes a classifier layer with a small-std normal distribution.
 
     Args:
-        m: The module to initialize in-place. Only linear layers are affected.
+        m: The module to initialize in place. Only linear layers are affected.
     """
-    classname = m.__class__.__name__
-    if classname.find("Linear") != -1:
+    if isinstance(m, nn.Linear):
         nn.init.normal_(m.weight, std=0.001)
         if m.bias is not None:
             nn.init.constant_(m.bias, 0.0)
@@ -110,7 +110,8 @@ class ReIDModel(nn.Module):
                 downsampling stride for higher resolution features).
             pooling: Global pooling type, one of ``"avg"``, ``"gem"`` or
                 ``"max"``.
-            ibn: Whether to use an IBN backbone (with graceful fallback).
+            ibn: Whether to use the ResNet-50-IBN-a backbone from ``torch.hub``.
+                Loading failures raise instead of falling back.
             feat_dim: Expected feature dimensionality. Must match the backbone's
                 output channel count (``2048`` for ResNet-50).
         """
@@ -194,12 +195,16 @@ class ReIDModel(nn.Module):
         return feat
 
 
-def build_model(cfg: Config, num_classes: int) -> ReIDModel:
+def build_model(cfg: Config, num_classes: int, *, pretrained: bool | None = None) -> ReIDModel:
     """Builds a :class:`ReIDModel` from a configuration object.
 
     Args:
         cfg: The full project configuration. Only ``cfg.model`` fields are used.
         num_classes: Number of training identities for the classifier head.
+        pretrained: Whether to initialize the backbone from ImageNet weights.
+            ``None`` (the default) uses ``cfg.model.pretrained``. Inference
+            paths that immediately load trained weights pass ``False`` so no
+            ImageNet download happens.
 
     Returns:
         A configured :class:`ReIDModel`.
@@ -208,9 +213,91 @@ def build_model(cfg: Config, num_classes: int) -> ReIDModel:
     return ReIDModel(
         num_classes=num_classes,
         backbone=model_cfg.name,
-        pretrained=model_cfg.pretrained,
+        pretrained=model_cfg.pretrained if pretrained is None else pretrained,
         last_stride=model_cfg.last_stride,
         pooling=model_cfg.pooling,
         ibn=model_cfg.ibn,
         feat_dim=model_cfg.feat_dim,
     )
+
+
+def load_trained_model(
+    weights: str | Path,
+    cfg: Config | None = None,
+    *,
+    map_location: str = "cpu",
+) -> tuple[ReIDModel, Config]:
+    """Rebuilds a trained :class:`ReIDModel` from a checkpoint file.
+
+    The architecture comes from the config embedded in the checkpoint when one
+    is present, because rebuilding from a different YAML can silently produce
+    wrong features (a ``last_stride`` mismatch, for example, changes no
+    parameter names). The checkpoint supplies ``cfg.model`` and the input
+    geometry ``cfg.data.height`` and ``cfg.data.width``; every other section
+    comes from ``cfg`` (or the :class:`~reid.config.Config` defaults). The
+    backbone is built without ImageNet weights, the classifier is sized from
+    the checkpoint, and the weights are loaded strictly.
+
+    Args:
+        weights: Path to a checkpoint written by the trainer (``best.pth`` or
+            ``last.pth``) or by :func:`reid.utils.checkpoint.save_model`
+            (``model_final.pth``), or to a bare ``state_dict``.
+        cfg: Base configuration for everything the checkpoint does not
+            describe. It is not modified.
+        map_location: Device mapping used when reading the checkpoint.
+
+    Returns:
+        A tuple ``(model, effective_cfg)`` with the model in eval mode on the
+        CPU and the configuration it was built from.
+
+    Raises:
+        FileNotFoundError: If ``weights`` does not exist.
+        RuntimeError: If the classifier size cannot be inferred or the weights
+            do not match the rebuilt architecture exactly.
+    """
+    from reid.config import Config
+    from reid.utils.checkpoint import (
+        infer_num_classes_from_checkpoint,
+        load_model,
+        read_checkpoint_config,
+    )
+
+    path = Path(weights)
+    if not path.is_file():
+        raise FileNotFoundError(f"Model weights not found: {path}")
+
+    effective = copy.deepcopy(cfg) if cfg is not None else Config()
+    embedded = read_checkpoint_config(path)
+    if embedded is not None:
+        model_section = embedded.get("model")
+        if isinstance(model_section, dict):
+            ckpt_model = Config.from_dict({"model": model_section}).model
+            if cfg is not None:
+                for field in dataclasses.fields(ckpt_model):
+                    ours = getattr(cfg.model, field.name)
+                    theirs = getattr(ckpt_model, field.name)
+                    if field.name != "pretrained" and ours != theirs:
+                        logger.warning(
+                            "Using model.%s=%r from the checkpoint instead of %r from the config.",
+                            field.name,
+                            theirs,
+                            ours,
+                        )
+            effective.model = ckpt_model
+        data_section = embedded.get("data")
+        if isinstance(data_section, dict):
+            for key in ("height", "width"):
+                if data_section.get(key) is not None:
+                    setattr(effective.data, key, int(data_section[key]))
+    else:
+        logger.warning("Checkpoint %s has no embedded config; using the given config.", path)
+
+    num_classes = infer_num_classes_from_checkpoint(path, fallback=0)
+    if num_classes <= 0:
+        raise RuntimeError(f"Could not infer the classifier size from {path}.")
+
+    model = build_model(effective, num_classes, pretrained=False)
+    load_model(model, path, map_location=map_location, strict=True)
+    model.to("cpu")
+    model.eval()
+    return model, effective

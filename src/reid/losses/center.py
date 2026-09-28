@@ -5,11 +5,12 @@ Feature Learning Approach for Deep Face Recognition"). The loss maintains one
 learnable center per identity and penalizes the squared distance between each
 sample's feature and its class center, encouraging tighter intra-class
 clusters. It complements the triplet loss in the strong baseline and is gated
-behind a config flag (default on).
+behind the ``loss.center_loss`` config flag, which is off by default and
+enabled in ``configs/market1501_strong_baseline.yaml``.
 
 The class centers are stored as an :class:`torch.nn.Parameter`; they are
 **not** moved to a device inside ``__init__`` so that the standard
-``model.to(device)`` / ``loss.to(device)`` pattern (driven by the
+``model.to(device)`` and ``loss.to(device)`` pattern (driven by the
 :class:`reid.engine.trainer.Trainer`) remains the single source of truth for
 device placement. The trainer also creates a dedicated optimizer for these
 centers.

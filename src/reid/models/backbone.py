@@ -5,16 +5,15 @@ It is a ResNet-50 truncated before the global pooling and fully-connected
 classification head, so its forward pass returns the raw ``layer4`` feature map
 of shape ``[N, 2048, h, w]``.
 
-Two project-specific modifications are supported:
-
-* **last_stride=1** -- removing the stride in the first block of ``layer4``
-  doubles the spatial resolution of the final feature map (e.g. ``16x8``
-  instead of ``8x4`` for a ``256x128`` input). This is a standard Re-ID trick
-  that improves retrieval accuracy at a modest compute cost.
-* **IBN backbone** -- optionally load a ResNet-50-IBN-a model (Instance-Batch
-  Normalization) from ``torch.hub``. If the hub model cannot be fetched (for
-  example because there is no network access) the build falls back to a plain
-  ResNet-50 and logs a warning.
+Two project-specific modifications are supported. Setting ``last_stride=1``
+removes the stride in the first block of ``layer4``, which doubles the spatial
+resolution of the final feature map (``16x8`` instead of ``8x4`` for a
+``256x128`` input). This is a standard Re-ID trick that improves retrieval
+accuracy at a modest compute cost. Setting ``ibn=True`` swaps in a
+ResNet-50-IBN-a (Instance-Batch Normalization) loaded from ``torch.hub`` at a
+pinned IBN-Net commit. Enabling it downloads and executes that pinned hub code,
+and any failure to load it raises instead of silently building a plain
+ResNet-50, so a saved config never claims an IBN backbone that was not used.
 
 ``torchvision`` is imported lazily inside :func:`build_backbone` so that simply
 importing this module (or the top-level :mod:`reid` package) does not pull in
@@ -24,6 +23,7 @@ importing this module (or the top-level :mod:`reid` package) does not pull in
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from torch import Tensor, nn
 
@@ -32,12 +32,20 @@ logger = logging.getLogger(__name__)
 FEAT_DIM: int = 2048
 """Output channel dimension of a ResNet-50 ``layer4`` feature map."""
 
+IBN_HUB_REPO: str = "XingangPan/IBN-Net:d1673389b36c1180cf9bc35ea8260d84046da915"
+"""The ``torch.hub`` spec for IBN-Net, pinned to an audited commit."""
 
-def _set_last_stride_one(layer4: nn.Module) -> None:
+IBN_HUB_ENTRYPOINT: str = "resnet50_ibn_a"
+"""Name of the ResNet-50-IBN-a entrypoint in the IBN-Net ``hubconf.py``."""
+
+_SUPPORTED_LAST_STRIDES: tuple[int, ...] = (1, 2)
+
+
+def _set_last_stride_one(layer4: nn.Sequential) -> None:
     """Sets the stride of the first ``layer4`` block to 1.
 
     This modifies the ``3x3`` convolution and the downsampling shortcut of the
-    first bottleneck block in-place so that ``layer4`` no longer downsamples,
+    first bottleneck block in place so that ``layer4`` no longer downsamples,
     increasing the spatial resolution of the final feature map.
 
     Args:
@@ -46,18 +54,40 @@ def _set_last_stride_one(layer4: nn.Module) -> None:
     block = layer4[0]
     # Bottleneck downsampling happens in conv2 (the 3x3 conv) and in the
     # downsample shortcut. Setting both strides to 1 keeps the resolution.
-    if hasattr(block, "conv2") and block.conv2 is not None:
-        block.conv2.stride = (1, 1)
-    if getattr(block, "downsample", None) is not None:
-        block.downsample[0].stride = (1, 1)
+    conv2 = getattr(block, "conv2", None)
+    if isinstance(conv2, nn.Conv2d):
+        conv2.stride = (1, 1)
+    downsample = getattr(block, "downsample", None)
+    if isinstance(downsample, nn.Sequential) and isinstance(downsample[0], nn.Conv2d):
+        downsample[0].stride = (1, 1)
+
+
+def _child(resnet: nn.Module, name: str) -> nn.Module:
+    """Returns a named submodule of ``resnet``, failing clearly when absent.
+
+    Args:
+        resnet: A ResNet-style network.
+        name: Attribute name of the submodule, for example ``"layer4"``.
+
+    Returns:
+        The submodule.
+
+    Raises:
+        TypeError: If ``resnet`` has no submodule called ``name``.
+    """
+    module = getattr(resnet, name, None)
+    if not isinstance(module, nn.Module):
+        raise TypeError(f"Backbone network has no submodule {name!r}.")
+    return module
 
 
 class ResNetFeatureExtractor(nn.Module):
     """Wraps a ResNet-50 to expose only its convolutional feature map.
 
-    The wrapped network runs ``conv1 -> bn1 -> relu -> maxpool`` followed by
-    ``layer1 .. layer4`` and returns the ``layer4`` output. The original global
-    average pool and fully-connected classifier are intentionally omitted.
+    The wrapped network runs ``conv1``, ``bn1``, ``relu`` and ``maxpool``
+    followed by ``layer1`` through ``layer4`` and returns the ``layer4``
+    output. The original global average pool and fully-connected classifier
+    are intentionally omitted.
 
     Attributes:
         conv1: Initial ``7x7`` convolution.
@@ -75,18 +105,18 @@ class ResNetFeatureExtractor(nn.Module):
 
         Args:
             resnet: A ResNet-50 module exposing the standard attribute names
-                (``conv1``, ``bn1``, ``relu``, ``maxpool``, ``layer1`` ..
-                ``layer4``).
+                (``conv1``, ``bn1``, ``relu``, ``maxpool`` and ``layer1``
+                through ``layer4``).
         """
         super().__init__()
-        self.conv1 = resnet.conv1
-        self.bn1 = resnet.bn1
-        self.relu = resnet.relu
-        self.maxpool = resnet.maxpool
-        self.layer1 = resnet.layer1
-        self.layer2 = resnet.layer2
-        self.layer3 = resnet.layer3
-        self.layer4 = resnet.layer4
+        self.conv1: nn.Module = _child(resnet, "conv1")
+        self.bn1: nn.Module = _child(resnet, "bn1")
+        self.relu: nn.Module = _child(resnet, "relu")
+        self.maxpool: nn.Module = _child(resnet, "maxpool")
+        self.layer1: nn.Module = _child(resnet, "layer1")
+        self.layer2: nn.Module = _child(resnet, "layer2")
+        self.layer3: nn.Module = _child(resnet, "layer3")
+        self.layer4: nn.Module = _child(resnet, "layer4")
 
     def forward(self, x: Tensor) -> Tensor:
         """Runs the convolutional stem and residual stages.
@@ -124,26 +154,33 @@ def _build_torchvision_resnet50(pretrained: bool) -> nn.Module:
 
 
 def _build_ibn_resnet50(pretrained: bool) -> nn.Module:
-    """Attempts to construct a ResNet-50-IBN-a from ``torch.hub``.
+    """Constructs a ResNet-50-IBN-a from ``torch.hub`` at a pinned commit.
+
+    The repository is trusted explicitly with ``trust_repo=True`` because
+    setting ``model.ibn`` is the opt-in. Without it, recent PyTorch releases ask
+    for confirmation on stdin, which blocks interactive runs and fails in
+    headless ones.
 
     Args:
-        pretrained: Whether to request pretrained weights from the hub.
+        pretrained: Whether to request ImageNet-pretrained weights from the hub.
 
     Returns:
         A ResNet-50-IBN-a :class:`~torch.nn.Module`.
 
     Raises:
-        Exception: Propagated from :func:`torch.hub.load` if the model cannot
-            be fetched or constructed. The caller is expected to catch this and
-            fall back to a standard ResNet-50.
+        TypeError: If the hub entrypoint does not return a module.
     """
     import torch
 
-    return torch.hub.load(
-        "XingangPan/IBN-Net",
-        "resnet50_ibn_a",
+    model: Any = torch.hub.load(
+        IBN_HUB_REPO,
+        IBN_HUB_ENTRYPOINT,
         pretrained=pretrained,
+        trust_repo=True,
     )
+    if not isinstance(model, nn.Module):
+        raise TypeError(f"torch.hub entrypoint {IBN_HUB_ENTRYPOINT!r} did not return a module.")
+    return model
 
 
 def build_backbone(
@@ -157,12 +194,11 @@ def build_backbone(
     Args:
         name: Backbone identifier. Only ``"resnet50"`` is currently supported.
         pretrained: Whether to initialize from ImageNet-pretrained weights.
-        last_stride: Stride of the first ``layer4`` block. When set to ``1`` the
-            stride is removed to increase the final feature-map resolution; any
-            other value leaves the default stride of ``2`` untouched.
-        ibn: If ``True``, attempt to load a ResNet-50-IBN-a backbone from
-            ``torch.hub``. On failure, fall back to a standard ResNet-50 and log
-            a warning.
+        last_stride: Stride of the first ``layer4`` block, either ``1`` (the
+            stride is removed to increase the final feature-map resolution) or
+            ``2`` (the standard ResNet-50 behavior).
+        ibn: If ``True``, load a ResNet-50-IBN-a backbone from ``torch.hub`` at
+            the pinned commit in :data:`IBN_HUB_REPO`.
 
     Returns:
         A tuple ``(feature_extractor, feat_dim)`` where ``feature_extractor`` is
@@ -170,28 +206,34 @@ def build_backbone(
         ``[N, 2048, h, w]`` and ``feat_dim`` is ``2048``.
 
     Raises:
-        ValueError: If ``name`` is not a supported backbone.
+        ValueError: If ``name`` is not a supported backbone or ``last_stride``
+            is neither ``1`` nor ``2``.
+        RuntimeError: If ``ibn`` is ``True`` and the IBN backbone cannot be
+            loaded.
     """
     if name != "resnet50":
         raise ValueError(f"Unsupported backbone {name!r}. Only 'resnet50' is supported.")
+    if isinstance(last_stride, bool) or last_stride not in _SUPPORTED_LAST_STRIDES:
+        raise ValueError(f"Unsupported last_stride {last_stride!r}; expected 1 or 2.")
 
-    resnet: nn.Module | None = None
     if ibn:
         try:
             resnet = _build_ibn_resnet50(pretrained)
-            logger.info("Loaded ResNet-50-IBN-a backbone from torch.hub.")
-        except Exception as exc:  # noqa: BLE001 - any hub failure -> fallback
-            logger.warning(
-                "Failed to load ResNet-50-IBN-a backbone (%s); falling back to standard ResNet-50.",
-                exc,
-            )
-            resnet = None
-
-    if resnet is None:
+        except Exception as exc:
+            raise RuntimeError(
+                "model.ibn is true but ResNet-50-IBN-a could not be loaded from torch.hub "
+                f"({IBN_HUB_REPO}). Check network access, or set model.ibn to false to use "
+                "the plain ResNet-50."
+            ) from exc
+        logger.info("Loaded ResNet-50-IBN-a backbone from torch.hub (%s).", IBN_HUB_REPO)
+    else:
         resnet = _build_torchvision_resnet50(pretrained)
 
     if last_stride == 1:
-        _set_last_stride_one(resnet.layer4)
+        layer4 = _child(resnet, "layer4")
+        if not isinstance(layer4, nn.Sequential):
+            raise TypeError("Expected the backbone's layer4 to be an nn.Sequential.")
+        _set_last_stride_one(layer4)
 
     feature_extractor = ResNetFeatureExtractor(resnet)
     return feature_extractor, FEAT_DIM

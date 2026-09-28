@@ -2,14 +2,11 @@
 
 This module provides the pooling operations used to collapse a convolutional
 feature map ``[N, C, H, W]`` produced by the backbone into a global feature
-vector ``[N, C]``. Three variants are supported:
-
-* **Average pooling** -- the classic global average pooling used by most
-  ResNet-style classifiers.
-* **Max pooling** -- global max pooling, occasionally useful as a baseline.
-* **Generalized-Mean (GeM) pooling** -- a learnable interpolation between
-  average and max pooling that consistently improves retrieval metrics and is
-  the recommended default for this project.
+vector ``[N, C]``. Three variants are supported. Average pooling is the
+classic global average pooling used by most ResNet-style classifiers, and max
+pooling is occasionally useful as a baseline. Generalized-Mean (GeM) pooling is
+a learnable interpolation between the two that consistently improves retrieval
+metrics and is the recommended default for this project.
 
 All pooling modules expose the same contract: a callable mapping a
 ``[N, C, H, W]`` tensor to a ``[N, C]`` tensor.

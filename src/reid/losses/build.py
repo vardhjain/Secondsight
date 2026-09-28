@@ -1,12 +1,11 @@
 """Combined Re-ID loss and its factory.
 
-This module wires together the three loss components of the strong baseline:
-
-* identity classification via label-smoothing cross-entropy on the BNNeck
-  classifier logits,
-* metric learning via batch-hard triplet loss on the pre-BNNeck global
-  features, and
-* optional center loss for compact intra-class clustering.
+This module wires together the three loss components of the strong baseline.
+Identity classification uses label-smoothing cross-entropy on the BNNeck
+classifier logits, metric learning uses a batch-hard triplet loss on the
+pre-BNNeck global features, and an optional center loss encourages compact
+intra-class clusters. Every term is computed in float32 with autocast disabled,
+because the expanded distance formulas lose precision or overflow in float16.
 
 The combined :class:`ReIDLoss` returns both the scalar total and a dictionary
 of detached per-component values for logging. The center loss has its own set
@@ -22,6 +21,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import torch
 from torch import Tensor, nn
 
 from reid.losses.center import CenterLoss
@@ -37,7 +37,7 @@ class ReIDLoss(nn.Module):
 
     Args:
         num_classes: Number of training identities ``C``.
-        cfg: Loss configuration controlling weights, the triplet margin /
+        cfg: Loss configuration controlling weights, the triplet margin or
             soft-margin mode, the label-smoothing factor, and whether center
             loss is enabled.
         feat_dim: Feature width used to size the center-loss centers. Should
@@ -85,21 +85,25 @@ class ReIDLoss(nn.Module):
 
         Returns:
             A tuple ``(total_loss, components)`` where ``total_loss`` is the
-            scalar weighted sum and ``components`` maps the keys ``"id"``,
+            float32 scalar weighted sum and ``components`` maps the keys ``"id"``,
             ``"triplet"``, ``"center"``, and ``"total"`` to detached Python
             floats for logging.
         """
-        id_loss = self.cross_entropy(cls_score, target)
-        triplet_loss = self.triplet(global_feat, target)
+        # Distance-based losses are precision sensitive, so always compute in
+        # float32 even when the caller runs inside an autocast region.
+        with torch.autocast(device_type=global_feat.device.type, enabled=False):
+            cls_score = cls_score.float()
+            global_feat = global_feat.float()
+            id_loss = self.cross_entropy(cls_score, target)
+            triplet_loss = self.triplet(global_feat, target)
 
-        total = self.id_weight * id_loss + self.triplet_weight * triplet_loss
+            total = self.id_weight * id_loss + self.triplet_weight * triplet_loss
 
-        center_value = 0.0
-        if self.use_center:
-            assert self.center_loss is not None  # for type-checkers
-            center_loss = self.center_loss(global_feat, target)
-            total = total + self.center_weight * center_loss
-            center_value = float(center_loss.detach().item())
+            center_value = 0.0
+            if self.center_loss is not None:
+                center_loss = self.center_loss(global_feat, target)
+                total = total + self.center_weight * center_loss
+                center_value = float(center_loss.detach().item())
 
         components: dict[str, float] = {
             "id": float(id_loss.detach().item()),
