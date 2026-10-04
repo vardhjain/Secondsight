@@ -40,6 +40,10 @@ updates:
       include: "scope"
     ignore:
       - dependency-name: "gradio"
+      # The Space states minimum versions for the PyTorch stack on purpose, so
+      # raising those floors to the newest release would only narrow support.
+      - dependency-name: "torch"
+      - dependency-name: "torchvision"
 
   # GitHub Actions used in the CI workflows (pinned by commit SHA).
   - package-ecosystem: "github-actions"
