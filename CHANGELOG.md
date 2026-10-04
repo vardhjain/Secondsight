@@ -31,9 +31,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   trains, evaluates the final weights, renders the figures and packages the
   outputs for download.
 - README status badges and a Results section with measured metrics. The baseline
-  reaches **85.0 mAP / 94.2 Rank-1**, rising to **93.7 mAP / 94.7 Rank-1** with
-  k-reciprocal re-ranking (seed 42, 60 epochs). These figures will be
-  re-measured with the updated evaluation protocol.
+  reaches **84.8 mAP / 93.8 Rank-1**, rising to **93.6 mAP / 95.1 Rank-1** with
+  k-reciprocal re-ranking (seed 42, 60 epochs, final-epoch weights, reference
+  squared-distance re-ranking).
 - Model card (`docs/MODEL_CARD.md`) covering intended use, data, metrics,
   limitations, and ethical considerations.
 - Unit tests for the LR schedulers, checkpoint (de)serialization, device

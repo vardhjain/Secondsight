@@ -102,15 +102,14 @@ a biometric identification system and must not be used as one.
   epochs). The reference column lists figures reported by Luo et al. (2019) for
   the original strong-baseline recipe, for comparison only.
 
-> **Note:** the numbers below predate the updated evaluation protocol
-> (final-epoch weights and squared-distance re-ranking) and will be re-measured
-> shortly. The reference figures were measured without flip test-time
-> augmentation.
+> **Note:** the numbers below come from the final-epoch weights with the
+> reference squared-distance re-ranking. The reference figures were measured
+> without flip test-time augmentation.
 
 | Setting                   |  mAP   | Rank-1 | Rank-5 | Rank-10 | Reference (Luo et al., 2019) |
 | ------------------------- | :----: | :----: | :----: | :-----: | :--------------------------: |
-| Cosine + flip-TTA         | 85.04% | 94.21% | 98.25% | 98.90%  |     ~85.9 mAP / ~94.5 R-1    |
-| + k-reciprocal re-ranking | 93.66% | 94.66% | 97.57% | 98.28%  |     ~94.2 mAP / ~95.4 R-1    |
+| Cosine + flip-TTA         | 84.84% | 93.79% | 98.19% | 98.84%  |     ~85.9 mAP / ~94.5 R-1    |
+| + k-reciprocal re-ranking | 93.57% | 95.07% | 97.57% | 98.10%  |     ~94.2 mAP / ~95.4 R-1    |
 
 ## Limitations
 

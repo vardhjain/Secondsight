@@ -7,7 +7,7 @@
 Give it one cropped photo of a person and it searches a gallery of other photos, ranking every
 candidate by how likely it is to be that same individual seen again on a different, non-overlapping
 camera. Secondsight runs a carefully engineered **ResNet-50 + BNNeck** pipeline that reaches
-**85.0 mAP / 94.2 Rank-1**, rising to **93.7 mAP** after k-reciprocal re-ranking.
+**84.8 mAP / 93.8 Rank-1**, rising to **93.6 mAP / 95.1 Rank-1** after k-reciprocal re-ranking.
 
 **[▶ Open in Colab](https://colab.research.google.com/github/vardhjain/Secondsight/blob/main/notebooks/train_colab.ipynb)** &nbsp;·&nbsp; **[📊 Results](#results)** &nbsp;·&nbsp; **[🤗 Live demo](#hugging-face-space)** &nbsp;·&nbsp; **[🧠 Model card](docs/MODEL_CARD.md)**
 
@@ -171,15 +171,14 @@ These numbers were measured on Market-1501 from a single training run (seed 42, 
 their original strong baseline, and this run comes within about one point of them while training
 for half as many epochs.
 
-> [!IMPORTANT]
-> These published numbers predate the updated evaluation protocol described above (final-epoch
-> weights and squared-distance re-ranking). They will be re-measured with the current Colab notebook
-> and updated here shortly.
+They come from the final-epoch weights (`model_final.pth`), evaluated once on the test split, and
+use the reference squared-distance form of k-reciprocal re-ranking. No checkpoint was chosen by its
+test-set score.
 
 | Setting                   |  mAP   | Rank-1 | Rank-5 | Rank-10 | Reference (Luo et al., 2019)¹ |
 | ------------------------- | :----: | :----: | :----: | :-----: | :---------------------------: |
-| Cosine + flip-TTA         | 85.04% | 94.21% | 98.25% | 98.90%  |     ~85.9 mAP / ~94.5 R-1     |
-| + k-reciprocal re-ranking | 93.66% | 94.66% | 97.57% | 98.28%  |     ~94.2 mAP / ~95.4 R-1     |
+| Cosine + flip-TTA         | 84.84% | 93.79% | 98.19% | 98.84%  |     ~85.9 mAP / ~94.5 R-1     |
+| + k-reciprocal re-ranking | 93.57% | 95.07% | 97.57% | 98.10%  |     ~94.2 mAP / ~95.4 R-1     |
 
 ¹ The reference figures were measured without flip test-time augmentation, so the comparison is
 close but not strictly like for like.
@@ -190,8 +189,8 @@ Running `reid-evaluate` on the trained checkpoint prints the same scorecard to t
 ------------------------------------------------------
 Setting              mAP    Rank-1    Rank-5   Rank-10
 ------------------------------------------------------
-Baseline         85.04%    94.21%    98.25%    98.90%
-Re-ranked        93.66%    94.66%    97.57%    98.28%
+Baseline         84.84%    93.79%    98.19%    98.84%
+Re-ranked        93.57%    95.07%    97.57%    98.10%
 ------------------------------------------------------
 ```
 
