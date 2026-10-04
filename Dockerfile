@@ -18,7 +18,7 @@
 # ---------------------------------------------------------------------------
 
 # uv as a named stage so Dependabot's docker updater can track its version.
-FROM ghcr.io/astral-sh/uv:0.12.19 AS uv
+FROM ghcr.io/astral-sh/uv:0.12.23 AS uv
 
 FROM python:3.11-slim-trixie AS base
 
