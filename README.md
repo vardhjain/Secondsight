@@ -7,7 +7,7 @@
 Secondsight is a person re-identification system. You give it one cropped photo of a person, and it
 searches a large collection of other photos and ranks them by how likely each one shows that same
 person, seen later by a different camera. On the standard Market-1501 benchmark the right person is
-the very first result **93.8% of the time**, and **95.1%** with an extra re-ranking step.
+the very first result **93.9% of the time**, and **95.0%** with an extra re-ranking step.
 
 **[▶ Train it in Colab](https://colab.research.google.com/github/vardhjain/Secondsight/blob/main/notebooks/train_colab.ipynb)** &nbsp;·&nbsp; **[📊 Results](#results)** &nbsp;·&nbsp; **[⚙️ How it works](#how-it-works)** &nbsp;·&nbsp; **[🧠 Model card](docs/MODEL_CARD.md)**
 
@@ -25,6 +25,11 @@ the very first result **93.8% of the time**, and **95.1%** with an extra re-rank
 > research and benchmarking.
 
 ---
+
+<p align="center">
+  <img src="docs/images/gradcam.png" alt="Grad-CAM heatmaps showing which parts of each person crop the model relies on" width="820">
+</p>
+<p align="center"><em>Where the model looks. The heatmaps show that it relies on clothing and body shape, and largely ignores the background.</em></p>
 
 ## What this project is
 
@@ -44,13 +49,14 @@ it through a small web demo.
 
 ## Results
 
-The model was trained once on a free Google Colab GPU in about 40 minutes and then tested on
+The model was trained once on a Google Colab GPU (about 13 minutes on an A100, or roughly 40 minutes
+on a free T4) and then tested on
 Market-1501, a public benchmark with 3,368 search photos and 15,913 candidate photos.
 
 | Setting         |  mAP   | Rank-1 | Rank-5 | Rank-10 | Reference (Luo et al., 2019)¹ |
 | --------------- | :----: | :----: | :----: | :-----: | :---------------------------: |
-| Standard search | 84.84% | 93.79% | 98.19% | 98.84%  |     ~85.9 mAP / ~94.5 R-1     |
-| With re-ranking | 93.57% | 95.07% | 97.57% | 98.10%  |     ~94.2 mAP / ~95.4 R-1     |
+| Standard search | 84.78% | 93.88% | 98.25% | 98.90%  |     ~85.9 mAP / ~94.5 R-1     |
+| With re-ranking | 93.69% | 94.95% | 97.65% | 98.40%  |     ~94.2 mAP / ~95.4 R-1     |
 
 ¹ The reference figures were measured without flip test-time augmentation, so the comparison is
 close but not strictly like for like.
@@ -66,6 +72,13 @@ These numbers land within about one point of the published reference while train
 epochs. They are also reported conservatively. They come from the weights at the end of training,
 evaluated a single time on the test set, and never from a checkpoint that was picked because it
 scored best on that same test set. They are single-run numbers with no averaging over random seeds.
+
+<p align="center">
+  <img src="docs/images/rerank_impact.png" alt="Three searches where re-ranking replaces a wrong top match with the correct person" width="420">
+  &nbsp;&nbsp;
+  <img src="docs/images/cmc_curve.png" alt="Curve showing how often the right person appears within the top results" width="420">
+</p>
+<p align="center"><em>Left, three searches where the first answer was a lookalike and re-ranking corrected it. Right, how quickly the chance of finding the right person rises as more results are considered.</em></p>
 
 ## Engineering highlights
 

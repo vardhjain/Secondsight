@@ -8,8 +8,8 @@ abstract: >-
   label-smoothing cross-entropy, LR warmup, AMP mixed precision, cosine
   feature retrieval, k-reciprocal re-ranking, and Grad-CAM explainability.
 type: software
-version: 0.1.0
-date-released: 2026-06-14
+version: 0.2.0
+date-released: 2026-10-04
 license: MIT
 repository-code: "https://github.com/vardhjain/Secondsight"
 url: "https://github.com/vardhjain/Secondsight"

@@ -10,7 +10,7 @@ model intended for **research, education, and portfolio demonstration**.
   follows the "strong baseline" of Luo et al., *Bag of Tricks and a Strong
   Baseline for Deep Person Re-Identification* (CVPRW 2019), with the deliberate
   changes listed under Training procedure.
-- **Version:** 0.1.0 (untagged; see the changelog for unreleased changes)
+- **Version:** 0.2.0 (the trained weights are attached to the v0.2.0 GitHub release)
 - **Task:** Deep metric learning for **cross-camera person retrieval**. The model
   maps a pedestrian image crop to a 2048-d L2-normalized embedding; identity
   matching is performed by cosine distance between embeddings (with optional
@@ -80,7 +80,7 @@ a biometric identification system and must not be used as one.
   erasing, ImageNet normalization. The test-time transform is resize and
   normalize, and evaluation additionally averages each embedding with that of
   the horizontally flipped image.
-- **Compute:** a single GPU (~40 minutes on a free Colab T4).
+- **Compute:** a single GPU (about 13 minutes on a Colab A100, or roughly 40 minutes on a free T4).
 
 ## Evaluation
 
@@ -108,8 +108,8 @@ a biometric identification system and must not be used as one.
 
 | Setting                   |  mAP   | Rank-1 | Rank-5 | Rank-10 | Reference (Luo et al., 2019) |
 | ------------------------- | :----: | :----: | :----: | :-----: | :--------------------------: |
-| Cosine + flip-TTA         | 84.84% | 93.79% | 98.19% | 98.84%  |     ~85.9 mAP / ~94.5 R-1    |
-| + k-reciprocal re-ranking | 93.57% | 95.07% | 97.57% | 98.10%  |     ~94.2 mAP / ~95.4 R-1    |
+| Cosine + flip-TTA         | 84.78% | 93.88% | 98.25% | 98.90%  |     ~85.9 mAP / ~94.5 R-1    |
+| + k-reciprocal re-ranking | 93.69% | 94.95% | 97.65% | 98.40%  |     ~94.2 mAP / ~95.4 R-1    |
 
 ## Limitations
 

@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-04
+
 ### Added
+- Trained weights (`model_final.pth`) published as a GitHub Release asset, and
+  Grad-CAM, re-ranking and CMC figures from the same run shown in the README.
 - A Hugging Face Space demo in `space/` that compares two uploaded person crops
   on a free CPU, with optional clickable example pairs and a deployment guide
   (`space/DEPLOYING.md`).
@@ -31,7 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   trains, evaluates the final weights, renders the figures and packages the
   outputs for download.
 - README status badges and a Results section with measured metrics. The baseline
-  reaches **84.8 mAP / 93.8 Rank-1**, rising to **93.6 mAP / 95.1 Rank-1** with
+  reaches **84.8 mAP / 93.9 Rank-1**, rising to **93.7 mAP / 95.0 Rank-1** with
   k-reciprocal re-ranking (seed 42, 60 epochs, final-epoch weights, reference
   squared-distance re-ranking).
 - Model card (`docs/MODEL_CARD.md`) covering intended use, data, metrics,
@@ -100,7 +104,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   download cells that follow it.
 
 ### Planned
-- Publish the trained checkpoint as a downloadable GitHub Release asset.
 - A cross-dataset domain-generalization evaluation script, targeting MSMT17
   (subject to its access terms). DukeMTMC-reID was withdrawn by its authors in
   2019 and will not be used.
@@ -134,5 +137,6 @@ This version was never tagged, so it has no release page.
   CI (ruff + pytest, Python 3.10–3.12), Dockerfile, docker-compose, pre-commit,
   and project documentation.
 
-[Unreleased]: https://github.com/vardhjain/Secondsight/commits/main
+[Unreleased]: https://github.com/vardhjain/Secondsight/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/vardhjain/Secondsight/releases/tag/v0.2.0
 [0.1.0]: https://github.com/vardhjain/Secondsight/commit/2aea8e4
