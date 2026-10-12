@@ -20,7 +20,7 @@
 # uv as a named stage so Dependabot's docker updater can track its version.
 FROM ghcr.io/astral-sh/uv:0.12.19 AS uv
 
-FROM python:3.11-slim-trixie AS base
+FROM python:3.14-slim-trixie AS base
 
 # Quiet, unbuffered Python. uv copies packages (no hardlinks across the cache
 # mount), precompiles bytecode, and installs into /app/.venv.
