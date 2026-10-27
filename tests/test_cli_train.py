@@ -3,8 +3,8 @@
 ``main()`` runs for one epoch on a tiny synthetic Market-1501 folder tree written
 to ``tmp_path``, with the ResNet-50 builder monkeypatched to a tiny linear model,
 so the whole pipeline (config loading and overrides, data loading, training,
-periodic and final evaluation, and every output file) is exercised on CPU in a
-few seconds and without any download.
+optional validation evaluation, final test evaluation, and run artifacts) is
+exercised on CPU in a few seconds and without any download.
 """
 
 from __future__ import annotations
@@ -138,8 +138,12 @@ def test_main_trains_end_to_end(tmp_path: Path) -> None:
     code, out = _run(tmp_path, "--no-deterministic")
     assert code == 0
 
-    for name in ("model_final.pth", "results.json", "best.pth", "last.pth", "history.json"):
+    for name in ("model_final.pth", "results.json", "last.pth", "history.json"):
         assert (out / name).is_file(), name
+    assert not (out / "best.pth").exists()  # No validation split, so no model selection.
+    history = json.loads((out / "history.json").read_text(encoding="utf-8"))
+    assert history["history"]["mAP"] == [None]
+    assert history["best_epoch"] == -1
 
     results = json.loads((out / "results.json").read_text(encoding="utf-8"))
     assert {"mAP", "rank1", "rank5", "rank10"} <= set(results)
@@ -164,6 +168,9 @@ def test_main_with_validation_split(tmp_path: Path) -> None:
     assert code == 0
     assert (out / "best.pth").is_file()
     assert (out / "results.json").is_file()
+    history = json.loads((out / "history.json").read_text(encoding="utf-8"))
+    assert history["best_epoch"] == 1
+    assert history["history"]["mAP"][0] is not None
 
 
 def test_invalid_override_fails_cleanly(tmp_path: Path) -> None:

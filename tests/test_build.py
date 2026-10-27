@@ -55,22 +55,25 @@ def test_split_validation_zero_keeps_everything() -> None:
 
 def test_split_validation_one_query_per_camera() -> None:
     """Each held-out identity yields one query per camera and a gallery of the rest."""
-    pids = [1, 1, 1, 1, 2, 2, 2, 3, 3]
-    camids = [1, 1, 2, 2, 1, 2, 3, 1, 1]
+    pids = [1, 1, 1, 1, 2, 2, 2, 3, 3, 4, 4, 4, 4]
+    camids = [1, 1, 2, 2, 1, 2, 3, 1, 1, 1, 1, 2, 2]
     split = split_validation_ids(pids, camids, 2, seed=0)
 
-    # Identity 3 is seen by one camera only, so it is never held out.
-    assert split.val_pids == [1, 2]
-    assert split.train == [7, 8]
-    assert split.val_query == [0, 2, 4, 5, 6]
-    assert split.val_gallery == [1, 3]
+    # Identity 2 has only one image per camera and identity 3 has only one
+    # camera. Neither can yield valid cross-camera gallery matches for all queries.
+    assert split.val_pids == [1, 4]
+    assert split.train == [4, 5, 6, 7, 8]
+    assert split.val_query == [0, 2, 9, 11]
+    assert split.val_gallery == [1, 3, 10, 12]
     assert sorted(split.train + split.val_query + split.val_gallery) == list(range(len(pids)))
+    for i in split.val_query:
+        assert any(pids[i] == pids[j] and camids[i] != camids[j] for j in split.val_gallery)
 
 
 def test_split_validation_is_seeded_and_isolated() -> None:
     """The same seed picks the same identities without touching the global RNG."""
-    pids = [p for p in range(20) for _ in range(2)]
-    camids = [1, 2] * 20
+    pids = [p for p in range(20) for _ in range(4)]
+    camids = [1, 1, 2, 2] * 20
     state = random.getstate()
     first = split_validation_ids(pids, camids, 5, seed=7)
     assert random.getstate() == state
@@ -86,7 +89,23 @@ def test_split_validation_rejects_impossible_requests() -> None:
     with pytest.raises(ValueError, match=">= 0"):
         split_validation_ids([1, 1], [1, 2], -1, seed=0)
     with pytest.raises(ValueError, match="only 1"):
-        split_validation_ids([1, 1, 2, 2], [1, 2, 1, 1], 2, seed=0)
+        split_validation_ids([1, 1, 2, 2, 2, 2], [1, 2, 1, 1, 2, 2], 2, seed=0)
+
+
+def test_split_validation_rejects_sparse_cross_camera_data() -> None:
+    """One image per camera is not enough for one query from every camera."""
+    with pytest.raises(ValueError, match="at least two images on each of two cameras"):
+        split_validation_ids([1, 1, 2, 2], [1, 2, 1, 2], 1, seed=0)
+
+
+def test_split_validation_allows_singleton_third_camera() -> None:
+    """A third camera can contribute a query if two others still supply positives."""
+    pids = [1, 1, 1, 1, 1]
+    camids = [1, 1, 2, 2, 3]
+    split = split_validation_ids(pids, camids, 1, seed=0)
+    assert split.val_query == [0, 2, 4]
+    assert split.val_gallery == [1, 3]
+    assert all(any(camids[j] != camids[i] for j in split.val_gallery) for i in split.val_query)
 
 
 def test_build_dataloaders_contract(fake_market_root: Path) -> None:

@@ -53,8 +53,8 @@ class DataConfig:
         re_prob: Probability of applying random erasing when enabled.
         val_ids: Number of training identities held out as a validation
             query/gallery split for model selection. ``0`` disables the split,
-            in which case periodic evaluation runs on the test split and serves
-            as monitoring only.
+            in which case periodic evaluation is skipped. The final-epoch
+            weights are still evaluated once on the test split after training.
     """
 
     root: str | None = None

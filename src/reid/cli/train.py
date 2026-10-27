@@ -8,8 +8,9 @@ optimizer and the warmup scheduler, and runs the
 :class:`reid.engine.trainer.Trainer` loop.
 
 Model selection for ``best.pth`` uses the validation split when
-``data.val_ids > 0``. Without it, periodic evaluation runs on the test split and
-is monitoring only. The headline results are always the final-epoch weights
+``data.val_ids > 0``. Without it, periodic evaluation is disabled and no
+``best.pth`` is produced. The test split is evaluated only after training
+on the final-epoch weights. The headline results are always the final-epoch weights
 evaluated on the test split (with re-ranking unless ``--no-rerank``). They are
 saved as ``model_final.pth`` and ``results.json`` and printed as a table.
 
@@ -110,7 +111,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help=(
             "Number of training identities held out for validation and best.pth "
-            "selection (0 disables the split). Overrides data.val_ids."
+            "selection (0 disables periodic evaluation). Overrides data.val_ids."
         ),
     )
     parser.add_argument(
@@ -288,10 +289,10 @@ def main(argv: list[str] | None = None) -> int:
         )
     else:
         logger.info(
-            "No validation split (data.val_ids=0), so periodic evaluation uses the test "
-            "split for monitoring only. The reported results are the final-epoch weights."
+            "No validation split (data.val_ids=0): skipping periodic evaluation and "
+            "best.pth selection. The test split will be evaluated only after training."
         )
-        periodic_evaluator = test_evaluator
+        periodic_evaluator = None
 
     trainer = Trainer(
         model=model,
@@ -312,10 +313,8 @@ def main(argv: list[str] | None = None) -> int:
         summary["elapsed_seconds"],
     )
 
-    # Headline results: the final-epoch weights on the test split. When the
-    # trainer monitored the test split, its forced final-epoch evaluation has
-    # already cached features for exactly these weights, so they are reused.
-    # A separate validation evaluator leaves the test evaluator's cache empty.
+    # Headline results: the final-epoch weights on the test split. Training
+    # never evaluates the test split, so its features are extracted only now.
     logger.info("Running final evaluation on the test split...")
     do_rerank = not args.no_rerank and cfg.eval.rerank
     results = test_evaluator.evaluate(rerank=do_rerank)

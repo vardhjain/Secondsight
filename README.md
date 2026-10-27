@@ -87,7 +87,7 @@ scored best on that same test set. They are single-run numbers with no averaging
 | Installable Python package     | One install gives four commands that work from any folder, with the default settings shipped inside the package.     |
 | 300+ automated tests           | The math of every loss and metric is checked against hand-computed values and a published reference implementation.  |
 | Continuous integration         | Every change is linted, type-checked, tested on Python 3.10 to 3.14, built, and smoke-tested inside Docker.           |
-| Honest evaluation              | An optional validation split keeps the test set out of model selection, and headline numbers use the final weights.  |
+| Honest evaluation              | Periodic checks use only held-out training identities; the test set is evaluated once after training.            |
 | Typed, validated configuration | A typo in a settings file fails immediately with a clear message rather than an hour into training.                  |
 | Explainability                 | Grad-CAM heatmaps and ranked-result galleries show what the model looks at and where it succeeds or fails.           |
 | Reproducibility                | A locked dependency file, fixed random seeds, and a one-click Colab notebook reproduce the results end to end.        |
@@ -217,14 +217,19 @@ then the CPU.
 
 ### Validation split and honest model selection
 
-Market-1501 has no official validation set, and choosing the "best" epoch by its test-set score would
-quietly leak the test set into model selection. Secondsight avoids that in two ways. First, setting
-`data.val_ids` to a positive number holds out that many training identities as a small validation
-split, and the periodic evaluation and `best.pth` selection then use it instead of the test set. With
-the default of `0`, periodic evaluation still runs on the test split, and the log says plainly that
-it is for monitoring only. Second, and regardless of that setting, **the headline numbers always come
-from the final-epoch weights** (`model_final.pth`) evaluated once on the test split. Training writes
-those metrics to `results.json` and the epoch-by-epoch log to `history.json`.
+Market-1501 has no official validation set. Secondsight keeps the test set out of
+training-time monitoring and checkpoint selection. With the default `data.val_ids: 0`,
+there is **no periodic evaluation** and no `best.pth`; `last.pth`, `history.json`,
+and `model_final.pth` are still written. To monitor validation mAP and select
+`best.pth`, set `data.val_ids` to a positive number (or pass `--val-ids N`).
+This holds out N training identities that have at least two images from each of
+two cameras; it also reduces the identities available for training.
+
+In both modes, **the final-epoch weights** (`model_final.pth`) are evaluated
+on the test split only *after* training, and test metrics are saved to `results.json`.
+The published v0.2.0 benchmark used the earlier periodic-test-monitoring
+workflow (without selecting a checkpoint on test mAP); its metrics remain
+historical single-run results until a new benchmark run is published.
 
 ## Demos
 

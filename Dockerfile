@@ -56,7 +56,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 RUN useradd --create-home --uid 1000 appuser
 ENV HOME=/home/appuser \
     TORCH_HOME=/home/appuser/.cache/torch \
-    REID_WEIGHTS=/app/outputs/best.pth
+    REID_WEIGHTS=/app/outputs/model_final.pth
 USER appuser
 
 # Gradio default port.

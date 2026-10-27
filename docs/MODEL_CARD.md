@@ -55,11 +55,14 @@ a biometric identification system and must not be used as one.
   discarded on load, per the standard protocol. All crops come from an automatic
   person detector.
 - **Validation:** Market-1501 has no official validation split. When
-  `data.val_ids` is set, that many training identities (seen by at least two
-  cameras, chosen deterministically from the seed) are held out as a small
-  query and gallery set used for periodic evaluation and `best.pth` selection.
-  The reported run did not use a hold-out, and its numbers come from the
-  final-epoch weights rather than a test-selected checkpoint.
+  `data.val_ids > 0`, that many training identities (each with at least two
+  images on each of two cameras, chosen deterministically from the seed) are
+  held out as a query/gallery set for periodic evaluation and `best.pth`
+  selection. With `data.val_ids: 0` (the default), periodic evaluation and
+  `best.pth` selection are disabled; only the final-epoch weights are tested.
+  The released v0.2.0 run used the earlier workflow: it monitored the test split
+  periodically, but did not select the reported weights on test-set metrics.
+  Published metrics remain those of this historical run.
 - **Known biases:** a single site, season, and camera rig; limited demographic
   and geographic diversity; fixed viewpoints and heights. Models trained on it
   generalize poorly across domains without adaptation.
