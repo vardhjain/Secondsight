@@ -67,9 +67,7 @@ def test_split_validation_one_query_per_camera() -> None:
     assert split.val_gallery == [1, 3, 10, 12]
     assert sorted(split.train + split.val_query + split.val_gallery) == list(range(len(pids)))
     for i in split.val_query:
-        assert any(
-            pids[i] == pids[j] and camids[i] != camids[j] for j in split.val_gallery
-        )
+        assert any(pids[i] == pids[j] and camids[i] != camids[j] for j in split.val_gallery)
 
 
 def test_split_validation_is_seeded_and_isolated() -> None:
@@ -107,9 +105,7 @@ def test_split_validation_allows_singleton_third_camera() -> None:
     split = split_validation_ids(pids, camids, 1, seed=0)
     assert split.val_query == [0, 2, 4]
     assert split.val_gallery == [1, 3]
-    assert all(
-        any(camids[j] != camids[i] for j in split.val_gallery) for i in split.val_query
-    )
+    assert all(any(camids[j] != camids[i] for j in split.val_gallery) for i in split.val_query)
 
 
 def test_build_dataloaders_contract(fake_market_root: Path) -> None:
