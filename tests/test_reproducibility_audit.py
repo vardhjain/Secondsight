@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import json
 from pathlib import Path
 
@@ -50,7 +51,7 @@ def test_colab_uses_immutable_source_and_locked_dependencies() -> None:
     """The notebook must not silently track main or install floating extras."""
     nb = json.loads(NOTEBOOK.read_text(encoding="utf-8"))
     setup = "".join(nb["cells"][4]["source"])
-    assert "PINNED_COMMIT =" in setup
+    assert 'PINNED_COMMIT = "4faaecb949736a4c6306716082fb2ccc5031c2ed"' in setup
     assert "git" in setup and "checkout" in setup and "--detach" in setup
     assert "uv" in setup and "--locked" in setup
     assert "--extra" in setup and "cuda" in setup
@@ -62,3 +63,15 @@ def test_colab_uses_immutable_source_and_locked_dependencies() -> None:
     )
     sources = "\n".join("".join(cell["source"]) for cell in nb["cells"])
     assert "uv.lock" in sources and "provenance.json" in sources
+
+
+def test_colab_python_cells_are_syntactically_valid() -> None:
+    """Check notebook Python cells without executing paid-GPU workloads."""
+    nb = json.loads(NOTEBOOK.read_text(encoding="utf-8"))
+    for cell in nb["cells"]:
+        if cell["cell_type"] != "code":
+            continue
+        source = "".join(cell["source"])
+        if source.lstrip().startswith("!"):
+            continue  # IPython shell escape, not Python syntax.
+        ast.parse(source)

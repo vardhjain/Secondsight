@@ -22,8 +22,8 @@ the code calls `torch.use_deterministic_algorithms(..., warn_only=True)`.
 ## Re-run with the current workflow
 
 The [Colab notebook](../notebooks/train_colab.ipynb) now checks out the
-immutable source commit `3f0179fc30a9f6a563c966fe72d869808df5f82a`
-(the Task 5 merged baseline) rather than moving `main`. It uses `uv
+immutable source commit `4faaecb949736a4c6306716082fb2ccc5031c2ed`
+(a reviewed Task 6 revision that includes the strict checker) rather than moving `main`. It uses `uv
 sync --locked` against that checkout's `uv.lock` and activates the
 `cuda`, `data` and `viz` extras.
 
