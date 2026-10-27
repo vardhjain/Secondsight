@@ -241,10 +241,10 @@ python app/gradio_app.py --weights outputs/model_final.pth --data-root /path/to/
 ```
 
 The second, in the [`space/`](space/) folder, is a lighter demo packaged for Hugging Face Spaces. A
-visitor uploads two person crops and it reports how similar they are. It runs on a free CPU, hosts no
-gallery, stores nothing, and its similarity threshold is not calibrated, so the verdict is a rough
-guide rather than an identification. See [`space/DEPLOYING.md`](space/DEPLOYING.md) for the
-deployment steps.
+visitor uploads two person crops and it reports their raw embedding cosine similarity, without a
+same/different identity verdict or an arbitrary match threshold. It runs on CPU, hosts no gallery,
+and is intended for research demonstration, not real-world identification or tracking. See
+[`space/DEPLOYING.md`](space/DEPLOYING.md) for the deployment steps.
 
 The first demo also ships as a Docker image that is reachable from the host on port 7860.
 

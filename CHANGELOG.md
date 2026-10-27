@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Replace the Hugging Face Space's uncalibrated same-person/different-person
+  threshold verdict with a descriptive cosine similarity score, its valid range,
+  and an explicit warning against interpreting it as a match probability.
+- Update the Space documentation and model card to reflect the score-only demo,
+  and add regression tests for high, orthogonal, and opposite embeddings.
+
 ### Fixed
 - Skip periodic evaluation entirely when no validation holdout is requested
   (`data.val_ids: 0`). Evaluate the test split only once, after training, and

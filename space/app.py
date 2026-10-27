@@ -1,8 +1,8 @@
 """Hugging Face Space demo for Secondsight.
 
 Upload two cropped photos of people and the app reports the cosine similarity
-of their learned embeddings, plus a soft verdict on whether they are likely the
-same person seen across cameras. The demo needs only the trained weights
+of their learned embeddings, without guessing whether they show the same person.
+The demo needs only the trained weights
 (``best.pth`` next to this file, or the path in ``REID_WEIGHTS``) and does not
 host the Market-1501 gallery. Any example images come from the optional
 ``examples/`` folder, which should only hold photos the Space owner has the
@@ -40,20 +40,17 @@ HERE = Path(__file__).resolve().parent
 EXAMPLES_DIR = HERE / "examples"
 _EXAMPLE_EXTS = frozenset({".jpg", ".jpeg", ".png", ".webp"})
 
-# Cosine similarity at or above this value is reported as a likely match. The
-# value is a loose demo setting and has NOT been calibrated on held-out pairs,
-# so it carries no measured false-match rate and is not an identity decision.
-SIM_THRESHOLD = 0.5
-
 MISSING_WEIGHTS_MESSAGE = (
     "Trained weights were not found. Add best.pth to this Space "
     "(see the deployment notes) and restart it."
 )
 LOAD_FAILED_MESSAGE = "The model failed to load. Check the Space logs for the error."
 _DISCLAIMER = (
-    "This is a research demo, not a reliable identity decision. The threshold is "
-    "uncalibrated. See the model card in the GitHub repository for the "
-    "limitations and intended use."
+    "Higher cosine similarity means the learned feature vectors are more aligned. "
+    "It is not a probability of an identity match. No decision threshold has been "
+    "calibrated on held-out pairs, so this demo does not classify people as the "
+    "same or different. For research demonstration only: do not use the score to "
+    "identify or track people. See the repository model card for limitations."
 )
 
 
@@ -140,19 +137,6 @@ def embed(loaded: LoadedModel, image: Image.Image) -> torch.Tensor:
     return normalize(feat, dim=1)
 
 
-def similarity_verdict(similarity: float, threshold: float = SIM_THRESHOLD) -> str:
-    """Turn a cosine similarity into the demo's soft verdict.
-
-    Args:
-        similarity: Cosine similarity of two embeddings.
-        threshold: Similarity at or above which the pair is called a match.
-
-    Returns:
-        A short human-readable verdict.
-    """
-    return "Likely the SAME person" if similarity >= threshold else "Likely DIFFERENT people"
-
-
 def compare_with(
     loaded: LoadedModel | None,
     person_a: Image.Image | None,
@@ -175,15 +159,11 @@ def compare_with(
     if person_a is None or person_b is None:
         return "Please upload a person crop in both boxes."
     similarity = float((embed(loaded, person_a) @ embed(loaded, person_b).t()).item())
-    return (
-        f"Cosine similarity: {similarity:.3f}\n"
-        f"{similarity_verdict(similarity)} (demo threshold {SIM_THRESHOLD:.2f})\n\n"
-        f"{_DISCLAIMER}"
-    )
+    return f"Cosine similarity: {similarity:.3f} (range: -1 to +1)\n\n{_DISCLAIMER}"
 
 
 def compare(person_a: Image.Image | None, person_b: Image.Image | None) -> str:
-    """Return the cosine similarity and a soft verdict for two person crops.
+    """Return an uncalibrated embedding similarity for two person crops.
 
     Args:
         person_a: First crop, or ``None`` when not uploaded.
@@ -251,8 +231,8 @@ def build_demo(examples: list[list[str]] | None = None) -> gr.Interface:
     description = (
         f"{lead} Secondsight encodes each one with a ResNet-50 + BNNeck network "
         "trained on Market-1501 and reports how similar their embeddings are under "
-        "cosine distance. A higher score means the two crops are more likely to be "
-        "the same person seen on a different camera."
+        "cosine similarity. This is a feature-space comparison, not an identity "
+        "decision; no same-person threshold has been validated."
     )
     return gr.Interface(
         fn=compare,
@@ -260,7 +240,7 @@ def build_demo(examples: list[list[str]] | None = None) -> gr.Interface:
             gr.Image(type="pil", label="Person A"),
             gr.Image(type="pil", label="Person B"),
         ],
-        outputs=gr.Textbox(label="Result", lines=5),
+        outputs=gr.Textbox(label="Embedding similarity (not an identity decision)", lines=7),
         title="Secondsight: cross-camera person re-identification",
         description=description,
         examples=examples,
