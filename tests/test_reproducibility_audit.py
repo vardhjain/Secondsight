@@ -51,10 +51,11 @@ def test_colab_uses_immutable_source_and_locked_dependencies() -> None:
     """The notebook must not silently track main or install floating extras."""
     nb = json.loads(NOTEBOOK.read_text(encoding="utf-8"))
     setup = "".join(nb["cells"][4]["source"])
-    assert 'PINNED_COMMIT = "4faaecb949736a4c6306716082fb2ccc5031c2ed"' in setup
+    assert 'PINNED_COMMIT = "3f0179fc30a9f6a563c966fe72d869808df5f82a"' in setup
     assert "git" in setup and "checkout" in setup and "--detach" in setup
     assert "uv" in setup and "--locked" in setup
     assert "--extra" in setup and "cuda" in setup
+    assert "Config.from_yaml" in setup  # compatible with the pinned revision
     assert 'pip", "install", "-q", "-e"' not in setup
     assert "sys.path.insert" in setup
     assert all(not cell.get("outputs") for cell in nb["cells"] if cell["cell_type"] == "code")
