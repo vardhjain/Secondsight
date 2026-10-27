@@ -33,10 +33,11 @@ def publish(api: Any, repo_id: str, source: Path = SOURCE) -> str:
         exist_ok=True,
     )
     runtime = api.get_space_runtime(repo_id=repo_id)
-    requested = str(getattr(runtime, "requested_hardware", "") or "")
-    current = str(getattr(runtime, "hardware", "") or "")
+    requested = getattr(runtime, "requested_hardware", None)
+    current = getattr(runtime, "hardware", None)
     # The requested hardware is authoritative during builds/migrations.
-    selected = requested or current
+    raw = requested or current
+    selected = str(getattr(raw, "value", raw) or "")
     if selected and not selected.startswith("zero-"):
         raise RuntimeError(
             f"Refusing to upload to hardware {selected!r}; "
