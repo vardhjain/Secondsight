@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Prevent routine Dependabot uv updates from attempting incompatible PyTorch
+  and torchvision wheel upgrades across CPU/CUDA and unsupported Python
+  environments. Paired version upgrades are now documented as manual while
+  security updates remain eligible.
+
 ### Changed
 - Replace the Hugging Face Space's uncalibrated same-person/different-person
   threshold verdict with a descriptive cosine similarity score, its valid range,

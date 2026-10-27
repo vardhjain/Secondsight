@@ -287,6 +287,12 @@ make test          # pytest
 make test-cov      # pytest with coverage
 ```
 
+Dependabot updates the ordinary Python dependencies weekly. PyTorch and
+torchvision use separate CPU and CUDA wheel sources and must be upgraded
+together rather than through routine Dependabot version PRs. See
+[`docs/DEPENDENCY_UPDATES.md`](docs/DEPENDENCY_UPDATES.md) for the manual
+upgrade, validation, and security-update procedure.
+
 Tests run on the CPU in a few minutes and never touch the network, since a shared fixture blocks
 weight and dataset downloads. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the development setup and
 conventions, and [`CHANGELOG.md`](CHANGELOG.md) for the history of changes.

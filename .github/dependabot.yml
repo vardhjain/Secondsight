@@ -22,6 +22,24 @@ updates:
     groups:
       python:
         update-types: ["minor", "patch"]
+    # PyTorch CPU wheels are resolved from a separate index for the "cpu"
+    # extra, while the default/"cuda" extra uses PyPI. Dependabot's universal
+    # uv upgrade of this pair has failed on unsupported Python/platform
+    # combinations (see the 2026-10-26 Dependabot run). Keep routine version
+    # bumps for this coupled pair human-reviewed and tested together. Limiting
+    # only version updates leaves Dependabot security updates enabled.
+    # See docs/DEPENDENCY_UPDATES.md for the no-cost update procedure.
+    ignore:
+      - dependency-name: "torch"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
+          - "version-update:semver-patch"
+      - dependency-name: "torchvision"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
+          - "version-update:semver-patch"
 
   # Hugging Face Space requirements. The Space SDK supplies Gradio through
   # space/README.md, so Gradio is not tracked here.
