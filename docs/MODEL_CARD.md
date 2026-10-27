@@ -143,9 +143,10 @@ The local Gradio demo (`app/gradio_app.py`) binds to `127.0.0.1` by default,
 ships no trained weights, and supports optional authentication (`--auth`) for
 any networked deployment. The optional Hugging Face Space in `space/` is
 different. It is public, unauthenticated and CPU-only, compares two uploaded
-crops, stores nothing, has flagging disabled, and applies an uncalibrated
-cosine threshold of 0.5, so its verdict describes embedding similarity and is
-not an identification. It hosts no gallery, and any example images must be
+crops, stores nothing, and has flagging disabled. It displays raw cosine
+similarity with a clear warning that the score is not an identity probability,
+and it does not make a same-person/different-person decision or apply an
+uncalibrated threshold. It hosts no gallery, and any example images must be
 ones the Space owner has the right to publish, never Market-1501 crops.
 
 ## Caveats and recommendations

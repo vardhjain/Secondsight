@@ -70,13 +70,33 @@ def test_compare_with_messages(space: ModuleType) -> None:
     assert "both boxes" in space.compare_with(_stub_loaded(space), img, None)
 
 
-def test_compare_with_verdicts(space: ModuleType) -> None:
+@pytest.mark.parametrize(
+    ("first", "second", "expected"),
+    [
+        ([1.0, 0.0], [1.0, 0.0], "1.000"),
+        ([1.0, 0.0], [0.0, 1.0], "0.000"),
+        ([1.0, 0.0], [-1.0, 0.0], "-1.000"),
+    ],
+)
+def test_compare_with_reports_similarity_without_identity_verdict(
+    space: ModuleType, first: list[float], second: list[float], expected: str
+) -> None:
+    """Similarity is descriptive, never a calibrated same-person verdict."""
     img = Image.new("RGB", (8, 16))
-    same = space.compare_with(_stub_loaded(space, [1.0, 0.0], [1.0, 0.0]), img, img)
-    assert "Cosine similarity: 1.000" in same and "SAME" in same
-    diff = space.compare_with(_stub_loaded(space, [1.0, 0.0], [0.0, 1.0]), img, img)
-    assert "Cosine similarity: 0.000" in diff and "DIFFERENT" in diff
-    assert "uncalibrated" in diff
+    output = space.compare_with(_stub_loaded(space, first, second), img, img)
+    assert f"Cosine similarity: {expected} (range: -1 to +1)" in output
+    assert "not a probability" in output
+    assert "No decision threshold has been calibrated" in output
+    assert "does not classify people" in output
+    assert "Likely the SAME person" not in output
+    assert "Likely DIFFERENT people" not in output
+    assert "demo threshold" not in output
+
+
+def test_space_has_no_identity_threshold(space: ModuleType) -> None:
+    """The demo does not expose an arbitrary identity decision boundary."""
+    assert not hasattr(space, "SIM_THRESHOLD")
+    assert not hasattr(space, "similarity_verdict")
 
 
 def test_pair_examples(space: ModuleType, tmp_path: Path) -> None:
