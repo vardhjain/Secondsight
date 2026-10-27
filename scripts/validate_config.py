@@ -43,8 +43,7 @@ def validate_config_file(path: Path) -> Config:
     for name, values in raw.items():
         if name not in sections:
             raise ValueError(
-                f"Unknown configuration section {name!r}."
-                + _suggest(str(name), list(sections))
+                f"Unknown configuration section {name!r}." + _suggest(str(name), list(sections))
             )
         if not isinstance(values, dict):
             raise ValueError(f"Section {name!r} must be a mapping.")
@@ -52,8 +51,7 @@ def validate_config_file(path: Path) -> Config:
         for key in values:
             if key not in allowed:
                 raise ValueError(
-                    f"Unknown configuration key {name}.{key}."
-                    + _suggest(str(key), list(allowed))
+                    f"Unknown configuration key {name}.{key}." + _suggest(str(key), list(allowed))
                 )
     return Config.from_yaml(path)
 

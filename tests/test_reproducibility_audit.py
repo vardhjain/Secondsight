@@ -6,7 +6,6 @@ import json
 from pathlib import Path
 
 import pytest
-
 from scripts.validate_config import main, validate_config_file
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -55,9 +54,11 @@ def test_colab_uses_immutable_source_and_locked_dependencies() -> None:
     assert "git" in setup and "checkout" in setup and "--detach" in setup
     assert "uv" in setup and "--locked" in setup
     assert "--extra" in setup and "cuda" in setup
-    assert "pip\", \"install\", \"-q\", \"-e\"" not in setup
+    assert 'pip", "install", "-q", "-e"' not in setup
     assert "sys.path.insert" in setup
     assert all(not cell.get("outputs") for cell in nb["cells"] if cell["cell_type"] == "code")
-    assert all(cell.get("execution_count") is None for cell in nb["cells"] if cell["cell_type"] == "code")
+    assert all(
+        cell.get("execution_count") is None for cell in nb["cells"] if cell["cell_type"] == "code"
+    )
     sources = "\n".join("".join(cell["source"]) for cell in nb["cells"])
     assert "uv.lock" in sources and "provenance.json" in sources
