@@ -81,6 +81,31 @@ jobs:
         if: matrix.python-version == '3.11'
         run: uv run --no-sync pytest --cov --cov-report=term-missing --cov-report=xml
 
+      # Cheap experiment-harness smoke: no dataset downloads, GPUs or training.
+      - name: Validate ablation planner, report and synthetic CPU benchmark
+        if: matrix.python-version == '3.11'
+        run: |
+          uv run --no-sync python scripts/plan_ablations.py \
+            --output-dir "$RUNNER_TEMP/ablation-ci" --seeds 42
+          uv run --no-sync python scripts/report_ablations.py \
+            --manifest "$RUNNER_TEMP/ablation-ci/manifest.json" \
+            --output "$RUNNER_TEMP/ablation-ci/report.md"
+          uv run --no-sync python scripts/benchmark_retrieval.py \
+            --queries 4 --gallery 8 --dim 16 --repeats 2 \
+            --warmups 0 --k1 3 --k2 2 \
+            --output "$RUNNER_TEMP/retrieval-ci.json"
+
+      - name: Upload experiment harness smoke artifacts
+        if: matrix.python-version == '3.11'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: experiment-harness-smoke
+          path: |
+            ${{ runner.temp }}/ablation-ci/manifest.json
+            ${{ runner.temp }}/ablation-ci/report.md
+            ${{ runner.temp }}/retrieval-ci.json
+          if-no-files-found: error
+
   typecheck:
     name: Type check (mypy)
     runs-on: ubuntu-latest

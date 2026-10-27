@@ -14,6 +14,7 @@ Without re-ranking: 84.78% mAP / 93.88% Rank-1. These are historical v0.2.0
 release results, not a multi-seed or cross-dataset evaluation.
 
 **[🔎 90-second project tour](docs/PROJECT_SHOWCASE.md)** &nbsp;·&nbsp;
+**[🧪 Reproducible experiments](docs/EXPERIMENTS.md)** &nbsp;·&nbsp;
 **[📦 Trained model + run artifacts](https://github.com/vardhjain/Secondsight/releases/tag/v0.2.0)** &nbsp;·&nbsp;
 **[📊 Results](#results)** &nbsp;·&nbsp;
 **[▶ Run in Colab](https://colab.research.google.com/github/vardhjain/Secondsight/blob/main/notebooks/train_colab.ipynb)** &nbsp;·&nbsp;
@@ -42,6 +43,7 @@ release results, not a multi-seed or cross-dataset evaluation.
 | **Measured retrieval results** | [Recorded metrics JSON](https://github.com/vardhjain/Secondsight/releases/download/v0.2.0/results.json) and [full benchmark table](#results) |
 | **Training and evaluation implementation** | [Training CLI](src/reid/cli/train.py), [evaluator](src/reid/evaluation/evaluator.py), and [tests](tests/) |
 | **Engineering decisions and limits** | [Technical case study](docs/PROJECT_SHOWCASE.md) and [model card](docs/MODEL_CARD.md) |
+| **Ablation & synthetic profiling tools** | [Experiment protocol](docs/EXPERIMENTS.md), [ablation planner](scripts/plan_ablations.py) and [CPU retrieval benchmark](scripts/benchmark_retrieval.py) |
 
 The repository includes a local Gradio gallery demo and source code for a
 deployable Hugging Face Space; **a public hosted demo has not been verified**.
@@ -152,6 +154,25 @@ export REID_DATA_ROOT=/path/printed/above
 reid-train     --output-dir outputs                # trains and writes outputs/model_final.pth
 reid-evaluate  --weights outputs/model_final.pth   # prints the results table
 reid-visualize --weights outputs/model_final.pth --output figures
+```
+
+## Experiments without paid compute
+
+The [experiment guide](docs/EXPERIMENTS.md) documents a reproducible
+one-factor-at-a-time training-ablation plan (GeM vs. average pooling, center
+loss on/off, repeated seeds), four evaluation-only TTA/re-ranking combinations,
+and an executable CPU-only synthetic retrieval benchmark. The planner writes
+configurations and commands; **it does not train or claim new accuracy
+measurements**. Missing experiment scores remain pending in the generated
+report, and synthetic timings are never presented as full-model or Market-1501
+benchmark latency. The generated `outputs/` files are git-ignored.
+
+```bash
+python scripts/plan_ablations.py --output-dir outputs/ablations --seeds 42
+python scripts/report_ablations.py --manifest outputs/ablations/manifest.json \
+  --output outputs/ablations/report.md
+python scripts/benchmark_retrieval.py --queries 64 --gallery 128 --dim 128 \
+  --output outputs/benchmarks/retrieval.json
 ```
 
 ## How it works
