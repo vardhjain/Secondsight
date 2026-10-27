@@ -81,6 +81,12 @@ jobs:
         if: matrix.python-version == '3.11'
         run: uv run --no-sync pytest --cov --cov-report=term-missing --cov-report=xml
 
+      - name: Strictly audit the shipped training config
+        if: matrix.python-version == '3.11'
+        run: |
+          uv run --no-sync python scripts/validate_config.py \
+            --config configs/market1501_strong_baseline.yaml
+
       # Cheap experiment-harness smoke: no dataset downloads, GPUs or training.
       - name: Validate ablation planner, report and synthetic CPU benchmark
         if: matrix.python-version == '3.11'

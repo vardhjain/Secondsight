@@ -152,7 +152,8 @@ ones the Space owner has the right to publish, never Market-1501 crops.
 
 ## Caveats and recommendations
 
-- Metrics are from a single run (seed 42); expect roughly ±0.5 mAP run-to-run
-  variance. The reference column is from the literature, for comparison only.
+- Metrics are from a single run (seed 42); run-to-run variation has **not**
+  been measured, so no confidence interval or variance estimate is claimed.
+  The reference column is from the literature, for comparison only.
 - Re-validate on representative data before any use beyond research and
   benchmarking.

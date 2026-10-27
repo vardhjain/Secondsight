@@ -108,8 +108,10 @@ for the chosen re-ranking settings; it is not a no-data demo.
 
 ### 3. Be explicit about known gaps
 
-These results are from **one training seed and one dataset**. There is no
-measured confidence interval, cross-dataset generalization evaluation,
+These results are from **one training seed and one dataset**. The
+[reproducibility guide](REPRODUCIBILITY.md) documents the pinned notebook and
+what a fresh run can and cannot reproduce. There is no measured
+confidence interval, cross-dataset generalization evaluation,
 calibrated pairwise identity classifier, production-service SLO, or measured
 inference throughput. Re-ranking uses all-pairs relationships and can be
 memory-intensive at scale. The [model card](MODEL_CARD.md) covers limitations,
