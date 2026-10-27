@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Reproducibility
+- Pin the Colab notebook to a specific reviewed source commit and install
+  from `uv.lock` instead of cloning moving `main` and using floating pip
+  dependencies. Bundle source, lockfile and runtime provenance with new runs.
+- Provide an opt-in strict YAML configuration checker that rejects unknown
+  field names without changing the backwards-compatible `Config` loader.
+- Correct README promises of exact reproduction and the model card's
+  unmeasured run-to-run variance estimate; add a reproducibility guide and
+  CI regression tests for the notebook and configuration checks.
+
 ### Added
 - CPU-only synthetic retrieval distance/re-ranking timing harness with machine-
   readable latency samples, environment metadata and conservative dense-array

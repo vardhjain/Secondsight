@@ -123,9 +123,9 @@ and [training history](https://github.com/vardhjain/Secondsight/releases/downloa
 | 300+ automated tests           | The math of every loss and metric is checked against hand-computed values and a published reference implementation.  |
 | Continuous integration         | Every change is linted, type-checked, tested on Python 3.10 to 3.14, built, and smoke-tested inside Docker.           |
 | Honest evaluation              | Periodic checks use only held-out training identities; the test set is evaluated once after training.            |
-| Typed, validated configuration | A typo in a settings file fails immediately with a clear message rather than an hour into training.                  |
+| Typed configuration + strict audit | Explicit validation catches invalid values; an opt-in [strict checker](docs/REPRODUCIBILITY.md) rejects typos before training. |
 | Explainability                 | Grad-CAM heatmaps and ranked-result galleries show what the model looks at and where it succeeds or fails.           |
-| Reproducibility                | A locked dependency file, fixed random seeds, and a one-click Colab notebook reproduce the results end to end.        |
+| Traceable experiments         | A locked dependency file, fixed Colab source revision and recorded provenance support reviewable new experiments.       |
 | Responsible release            | A model card documents intended use, limitations, and ethical considerations.                                        |
 
 ## Quick start
@@ -136,17 +136,22 @@ To inspect the work **without training or a GPU**, start with the
 [released model, configuration and metric files](https://github.com/vardhjain/Secondsight/releases/tag/v0.2.0).
 You can review the recorded results without downloading any dataset or weights.
 
-For a full new training run, the Colab notebook installs the package, downloads
-Market-1501 (subject to its access terms), trains, evaluates, renders the figures,
-and packages the outputs as a zip file. GPU access and availability vary; the
-model is **not** required just to inspect the showcase.
+For a full new training run, the Colab notebook checks out a **pinned Git commit**,
+syncs its **uv.lock**, downloads Market-1501 (subject to its access terms),
+trains, evaluates, and bundles the results with `provenance.json`. It is
+**not** a bit-for-bit replay of the historical v0.2.0 release, and has not
+been executed end-to-end on Colab in CI. GPU access and availability vary.
+See the [reproducibility guide](docs/REPRODUCIBILITY.md) for hardware,
+dataset-snapshot and deterministic-algorithm caveats.
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/vardhjain/Secondsight/blob/main/notebooks/train_colab.ipynb)
 
 To run it on your own machine, install the package and use its four commands.
 
 ```bash
-pip install -e ".[all,dev]"                        # or: uv sync --extra all --extra dev
+uv sync --locked --extra all --extra dev         # lockfile-backed environment
+# Alternatively: pip install -e ".[all,dev]" (not locked)
+# Activate .venv/bin/activate first, or invoke commands through uv run --no-sync
 
 reid-download                                      # fetches Market-1501 and prints its folder
 export REID_DATA_ROOT=/path/printed/above
@@ -272,7 +277,9 @@ make demo  DATA_ROOT=/path/to/Market-1501-v15.09.15 WEIGHTS=outputs/model_final.
 Every setting lives in a typed configuration (`reid.config`) that loads from and saves to YAML. The
 file `configs/default.yaml` mirrors the built-in defaults exactly, and it matches the headline recipe
 in `configs/market1501_strong_baseline.yaml` except that center loss is switched off. Unknown keys
-produce a warning instead of being silently ignored, and the configuration is validated after
+produce a warning and are ignored by the library loader, while invalid known values
+are rejected. For experiments, run the [strict preflight checker](scripts/validate_config.py)
+to **reject typos** before using GPU time. Configuration is validated after
 command-line overrides are applied. Setting `device: auto` picks a CUDA GPU first, then Apple MPS,
 then the CPU.
 

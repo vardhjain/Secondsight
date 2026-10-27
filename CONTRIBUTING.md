@@ -15,7 +15,7 @@ git clone https://github.com/vardhjain/Secondsight.git
 cd Secondsight
 
 # 2. Create the environment and install the package, all extras and dev tools
-uv sync --extra all --extra dev               # or: make install
+uv sync --locked --extra all --extra dev      # or: make install (may refresh lock)
 #    On a machine without a CUDA GPU, add --extra cpu to get the CPU PyTorch wheels
 
 # 3. Install the pre-commit hooks
@@ -43,8 +43,8 @@ make test          # pytest
 
 - **Formatting & linting:** [ruff](https://docs.astral.sh/ruff/) (line length 100,
   Google-style docstrings). Run `make format` before committing.
-- **Types:** public functions and classes are fully type-annotated; `mypy` runs
-  in non-blocking mode in CI.
+- **Types:** public functions and classes are fully type-annotated; `mypy`
+  is a blocking CI check.
 - **Tests:** [pytest](https://docs.pytest.org/). Light tests run on CPU with only
   NumPy, PyTorch, Pillow and PyYAML; heavy tests (the model and the transform pipeline)
   are guarded with `pytest.importorskip("torchvision")` and skip cleanly when
@@ -62,7 +62,10 @@ make test          # pytest
   the function that needs them, and when one is missing raise an `ImportError`
   that names the extra, for example `pip install "secondsight[viz]"`.
 - **Configuration:** new knobs go through `reid.config` dataclasses and the YAML
-  files, never as hardcoded constants in the training/eval paths.
+  files, never as hardcoded constants in the training/eval paths. The library
+  loader warns and ignores unknown settings; use
+  `python scripts/validate_config.py --config path/to/config.yaml` in
+  reproducibility-sensitive experiments to reject unknown keys.
 - **Commits:** clear, imperative subject lines (e.g. "Add cosine scheduler").
   [Conventional Commits](https://www.conventionalcommits.org/) prefixes
   (`feat:`, `fix:`, `docs:`, …) are welcome but not required.
