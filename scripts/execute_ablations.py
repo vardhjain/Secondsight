@@ -79,7 +79,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     if args.stage != "train" and not args.allow_test_evaluation:
-        parser.error("Evaluation requires --allow-test-evaluation; do not select using test scores.")
+        parser.error(
+            "Evaluation requires --allow-test-evaluation; do not select using test scores."
+        )
     root_value = args.data_root or os.environ.get("REID_DATA_ROOT")
     if not root_value:
         parser.error("Provide --data-root or REID_DATA_ROOT.")
@@ -89,8 +91,11 @@ def main(argv: list[str] | None = None) -> int:
     try:
         manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
         actions = planned_actions(
-            manifest, stage=args.stage, data_root=root,
-            device=args.device, max_runs=args.max_runs,
+            manifest,
+            stage=args.stage,
+            data_root=root,
+            device=args.device,
+            max_runs=args.max_runs,
         )
     except (OSError, ValueError, TypeError, KeyError) as exc:
         parser.error(str(exc))

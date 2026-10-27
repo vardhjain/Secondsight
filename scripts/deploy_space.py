@@ -63,10 +63,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.repo_id.count("/") != 1 or not all(args.repo_id.split("/")):
         parser.error("--repo-id must have the form namespace/space_name")
-    print(
-        f"Space target: {args.repo_id}. Hardware: ZeroGPU only. "
-        f"Files: {', '.join(FILES)}."
-    )
+    print(f"Space target: {args.repo_id}. Hardware: ZeroGPU only. Files: {', '.join(FILES)}.")
     if not args.apply:
         print("Preview only; use --apply after preparing HF_TOKEN and checking eligibility.")
         return 0

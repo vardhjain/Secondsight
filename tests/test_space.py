@@ -163,11 +163,11 @@ def test_download_release_weights_validates_digest_and_cleans_up(
         def __exit__(self, *_args):
             self.close()
 
-    monkeypatch.setattr(space.urllib.request, "urlopen", lambda *_args, **_kwargs: Response(payload))
-    target = tmp_path / "nested" / "best.pth"
-    space.download_release_weights(
-        target, expected_sha256=digest, expected_bytes=len(payload)
+    monkeypatch.setattr(
+        space.urllib.request, "urlopen", lambda *_args, **_kwargs: Response(payload)
     )
+    target = tmp_path / "nested" / "best.pth"
+    space.download_release_weights(target, expected_sha256=digest, expected_bytes=len(payload))
     assert target.read_bytes() == payload
     assert not list(target.parent.glob("*.part"))
     # An existing, manually provisioned checkpoint is not overwritten.
@@ -176,9 +176,7 @@ def test_download_release_weights_validates_digest_and_cleans_up(
 
     bad = tmp_path / "bad.pth"
     with pytest.raises(ValueError, match="checksum"):
-        space.download_release_weights(
-            bad, expected_sha256="0" * 64, expected_bytes=len(payload)
-        )
+        space.download_release_weights(bad, expected_sha256="0" * 64, expected_bytes=len(payload))
     assert not bad.exists()
     assert not list(tmp_path.glob("*.part"))
 
