@@ -126,13 +126,15 @@ dataset bias, and the risks of surveillance-related misuse.
 | What are the model and demo failure modes? | [Model card](MODEL_CARD.md), [Space demo tests](../tests/test_space.py) |
 | Can this be built and exercised automatically? | [CI workflow](../.github/workflows/ci.yml), [Dockerfile](../Dockerfile) |
 
-## What I would validate next
+## Reproducible experiment tools and remaining evidence gaps
 
-An ablation with consistent training/evaluation settings (GeM vs. average
-pooling, center loss on/off, flip-TTA, and re-ranking), repeated seeds to
-characterize run-to-run variation, and retrieval latency/memory benchmarking.
-Those would support stronger scientific and engineering claims than simply
-adding another framework or demo feature.
+The [experiment harness](EXPERIMENTS.md) now generates seed-controlled YAML
+ablation configurations and command manifests, plus a CPU-only synthetic
+retrieval timing/memory-estimate report. CI tests these tools **without training
+or downloading Market-1501**. Their results are not a substitute for real
+ablations: no new accuracy numbers, multi-seed variation, trained-model
+inference throughput or observed peak RAM are claimed. Those require actual
+executed experiments and should be added only with recorded provenance.
 
 ---
 

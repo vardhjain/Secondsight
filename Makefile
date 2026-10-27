@@ -30,7 +30,7 @@ IMAGE ?= secondsight:latest
 
 .DEFAULT_GOAL := help
 .PHONY: help install install-cpu install-dev sync lint format format-check typecheck test test-cov \
-        precommit download train eval visualize demo clean docker-build docker-run
+        precommit download train eval visualize demo clean docker-build docker-run ablation-plan ablation-report benchmark-retrieval
 
 help: ## Show this help message.
 	@echo "Available targets:"
@@ -73,6 +73,15 @@ precommit: ## Run all pre-commit hooks across the repository.
 
 download: ## Download the Market-1501 dataset via kagglehub.
 	$(UV) run python scripts/download_data.py
+
+ablation-plan: ## Generate ablation configs/commands (does not train).
+	$(UV) run python scripts/plan_ablations.py --output-dir outputs/ablations --seeds 42
+
+ablation-report: ## Render available ablation results (missing remain pending).
+	$(UV) run python scripts/report_ablations.py --manifest outputs/ablations/manifest.json --output outputs/ablations/report.md
+
+benchmark-retrieval: ## Benchmark synthetic CPU retrieval, not model inference.
+	$(UV) run python scripts/benchmark_retrieval.py --output outputs/benchmarks/retrieval.json
 
 train: ## Train the model (override CONFIG, DATA_ROOT, OUTPUT_DIR, DEVICE).
 	$(UV) run python scripts/train.py --config $(CONFIG) \
