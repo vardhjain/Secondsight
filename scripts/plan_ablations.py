@@ -67,8 +67,12 @@ def build_plan(
             train_path = run_dir / "train.yaml"
             train_cfg.to_yaml(train_path)
             train_command = [
-                "reid-train", "--config", str(train_path),
-                "--output-dir", str(run_dir), "--no-rerank",
+                "reid-train",
+                "--config",
+                str(train_path),
+                "--output-dir",
+                str(run_dir),
+                "--no-rerank",
             ]
             evaluations: list[dict[str, Any]] = []
             for name, flip, rerank in EVAL_VARIANTS:
@@ -87,9 +91,13 @@ def build_plan(
                         "config_sha256": hashlib.sha256(eval_path.read_bytes()).hexdigest(),
                         "results": str(results_path),
                         "argv": [
-                            "reid-evaluate", "--config", str(eval_path),
-                            "--weights", str(run_dir / "model_final.pth"),
-                            "--results-json", str(results_path),
+                            "reid-evaluate",
+                            "--config",
+                            str(eval_path),
+                            "--weights",
+                            str(run_dir / "model_final.pth"),
+                            "--results-json",
+                            str(results_path),
                         ],
                     }
                 )
@@ -99,9 +107,7 @@ def build_plan(
                     "variant": variant,
                     "seed": seed,
                     "train_config": str(train_path),
-                    "train_config_sha256": hashlib.sha256(
-                        train_path.read_bytes()
-                    ).hexdigest(),
+                    "train_config_sha256": hashlib.sha256(train_path.read_bytes()).hexdigest(),
                     "weights": str(run_dir / "model_final.pth"),
                     "train_argv": train_command,
                     "evaluations": evaluations,

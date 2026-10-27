@@ -134,15 +134,19 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--k1", type=int, default=20)
     parser.add_argument("--k2", type=int, default=6)
     parser.add_argument("--allow-large", action="store_true")
-    parser.add_argument(
-        "--output", type=Path, default=Path("outputs/benchmarks/retrieval.json")
-    )
+    parser.add_argument("--output", type=Path, default=Path("outputs/benchmarks/retrieval.json"))
     args = parser.parse_args(argv)
     try:
         result = benchmark(
-            queries=args.queries, gallery=args.gallery, dim=args.dim,
-            repeats=args.repeats, warmups=args.warmups, seed=args.seed,
-            threads=args.threads, k1=args.k1, k2=args.k2,
+            queries=args.queries,
+            gallery=args.gallery,
+            dim=args.dim,
+            repeats=args.repeats,
+            warmups=args.warmups,
+            seed=args.seed,
+            threads=args.threads,
+            k1=args.k1,
+            k2=args.k2,
             allow_large=args.allow_large,
         )
     except ValueError as exc:

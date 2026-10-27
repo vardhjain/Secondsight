@@ -35,21 +35,33 @@ def render_report(manifest_path: Path, output_path: Path) -> dict[str, int]:
             file = Path(trial["results"])
             if not file.is_file():
                 rows.append(
-                    (run["variant"], run["seed"], trial["name"], trial["rerank"],
-                     "pending", "—", "—")
+                    (
+                        run["variant"],
+                        run["seed"],
+                        trial["name"],
+                        trial["rerank"],
+                        "pending",
+                        "—",
+                        "—",
+                    )
                 )
                 continue
             result = json.loads(file.read_text(encoding="utf-8"))
             prefix = "rerank_" if trial["rerank"] else ""
             map_value = _metric(result.get(prefix + "mAP"), prefix + "mAP", file)
             rank1 = _metric(result.get(prefix + "rank1"), prefix + "rank1", file)
-            observed[(run["seed"], run["variant"], trial["name"])] = (
-                map_value, rank1
-            )
+            observed[(run["seed"], run["variant"], trial["name"])] = (map_value, rank1)
             complete += 1
             rows.append(
-                (run["variant"], run["seed"], trial["name"], trial["rerank"],
-                 "recorded", f"{map_value * 100:.2f}%", f"{rank1 * 100:.2f}%")
+                (
+                    run["variant"],
+                    run["seed"],
+                    trial["name"],
+                    trial["rerank"],
+                    "recorded",
+                    f"{map_value * 100:.2f}%",
+                    f"{rank1 * 100:.2f}%",
+                )
             )
 
     lines = [
@@ -75,8 +87,7 @@ def render_report(manifest_path: Path, output_path: Path) -> dict[str, int]:
         else:
             delta = "—"
         lines.append(
-            f"| {variant} | {seed} | {name} | {status} | {map_str} | "
-            f"{rank_str} | {delta} |"
+            f"| {variant} | {seed} | {name} | {status} | {map_str} | {rank_str} | {delta} |"
         )
     lines += [
         "",

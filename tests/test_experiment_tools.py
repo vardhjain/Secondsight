@@ -6,10 +6,13 @@ import json
 from pathlib import Path
 
 import pytest
-from reid.config import Config
-from scripts.benchmark_retrieval import benchmark, main as benchmark_main
-from scripts.plan_ablations import build_plan, main as plan_main
+from scripts.benchmark_retrieval import benchmark
+from scripts.benchmark_retrieval import main as benchmark_main
+from scripts.plan_ablations import build_plan
+from scripts.plan_ablations import main as plan_main
 from scripts.report_ablations import render_report
+
+from reid.config import Config
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 BASE_CONFIG = REPO_ROOT / "configs" / "market1501_strong_baseline.yaml"
@@ -23,8 +26,12 @@ def test_plan_is_deterministic_and_only_writes_configs(tmp_path: Path) -> None:
     assert plan["val_ids"] == 0
     assert len(plan["runs"]) == 6
     assert [run["id"] for run in plan["runs"]] == [
-        "baseline_seed42", "avg_pool_seed42", "no_center_loss_seed42",
-        "baseline_seed43", "avg_pool_seed43", "no_center_loss_seed43",
+        "baseline_seed42",
+        "avg_pool_seed42",
+        "no_center_loss_seed42",
+        "baseline_seed43",
+        "avg_pool_seed43",
+        "no_center_loss_seed43",
     ]
     assert (output / "manifest.json").is_file()
     for run in plan["runs"]:
@@ -34,9 +41,7 @@ def test_plan_is_deterministic_and_only_writes_configs(tmp_path: Path) -> None:
         assert training.train.seed == run["seed"]
         assert training.data.root is None
         assert training.eval.rerank is False
-        assert training.model.pooling == (
-            "avg" if run["variant"] == "avg_pool" else "gem"
-        )
+        assert training.model.pooling == ("avg" if run["variant"] == "avg_pool" else "gem")
         assert training.loss.center_loss == (run["variant"] != "no_center_loss")
         assert run["train_argv"][0] == "reid-train"
         for evaluation in run["evaluations"]:
@@ -88,9 +93,7 @@ def test_synthetic_cpu_benchmark_records_actual_timings_and_memory_bound() -> No
     out = benchmark(queries=4, gallery=8, dim=16, repeats=2, warmups=0, k1=3, k2=2)
     assert out["dataset"] == "synthetic_embeddings_only"
     assert out["estimated_dense_bytes_lower_bound"]["base_distance"] == 4 * 4 * 8
-    assert out["estimated_dense_bytes_lower_bound"]["reranking"] == (
-        6 * 12 * 12 + 4 * 4 * 8
-    )
+    assert out["estimated_dense_bytes_lower_bound"]["reranking"] == (6 * 12 * 12 + 4 * 4 * 8)
     for stage in ("base_distance", "reranking"):
         assert len(out["stages"][stage]["samples_ms"]) == 2
         assert out["stages"][stage]["median_ms"] >= 0.0
@@ -104,9 +107,27 @@ def test_experiment_commands_run_without_dataset(tmp_path: Path) -> None:
     out = tmp_path / "plans"
     assert plan_main(["--config", str(BASE_CONFIG), "--output-dir", str(out)]) == 0
     bench_path = tmp_path / "bench.json"
-    assert benchmark_main([
-        "--queries", "4", "--gallery", "8", "--dim", "16",
-        "--repeats", "1", "--warmups", "0", "--k1", "3", "--k2", "2",
-        "--output", str(bench_path),
-    ]) == 0
+    assert (
+        benchmark_main(
+            [
+                "--queries",
+                "4",
+                "--gallery",
+                "8",
+                "--dim",
+                "16",
+                "--repeats",
+                "1",
+                "--warmups",
+                "0",
+                "--k1",
+                "3",
+                "--k2",
+                "2",
+                "--output",
+                str(bench_path),
+            ]
+        )
+        == 0
+    )
     assert json.loads(bench_path.read_text(encoding="utf-8"))["repeats"] == 1
