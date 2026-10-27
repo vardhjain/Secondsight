@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation
+- Make the repository's first screen point to real release artifacts, the
+  evaluation code, and a concise project case study for technical reviewers.
+- Clarify that the v0.2.0 run periodically monitored the test set, that the
+  current default evaluation protocol is stricter, and that the published
+  results have not been rerun under the revised protocol.
+- Remove "production-grade" claims from package metadata and the model card;
+  describe the tested scope without implying external deployment validation.
+
 ### Fixed
 - Prevent routine Dependabot uv updates from attempting incompatible PyTorch
   and torchvision wheel upgrades across CPU/CUDA and unsupported Python

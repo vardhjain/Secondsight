@@ -28,7 +28,8 @@ model intended for **research, education, and portfolio demonstration**.
 **Primary intended uses**
 
 - Research and education on modern person re-identification.
-- A reference implementation showcasing a production-grade CV training pipeline.
+- A reproducible CV research pipeline with tested training, evaluation, packaging,
+  and local inference tools.
 - Retrieving likely matches of a query pedestrian image within a *closed gallery*
   on the Market-1501 benchmark.
 
