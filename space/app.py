@@ -17,8 +17,11 @@ it), and the Gradio interface is built by :func:`build_demo`. The module level
 from __future__ import annotations
 
 import functools
+import hashlib
 import logging
 import os
+import tempfile
+import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -40,9 +43,18 @@ HERE = Path(__file__).resolve().parent
 EXAMPLES_DIR = HERE / "examples"
 _EXAMPLE_EXTS = frozenset({".jpg", ".jpeg", ".png", ".webp"})
 
+# Immutable, publicly published release asset. GitHub's release API provides
+# this SHA-256 digest and file size; both are checked before a checkpoint is
+# moved into place. It is only downloaded inside an actual Hugging Face Space.
+_RELEASE_URL = (
+    "https://github.com/vardhjain/Secondsight/releases/download/v0.2.0/model_final.pth"
+)
+_RELEASE_SHA256 = "1d0149b1837511e2b25018044f1ffaae112986e2ff33ce366c01a792325fa98e"
+_RELEASE_BYTES = 100_544_973
+
 MISSING_WEIGHTS_MESSAGE = (
-    "Trained weights were not found. Add best.pth to this Space "
-    "(see the deployment notes) and restart it."
+    "Trained weights were not found. See the Space deployment instructions "
+    "to provision the verified v0.2.0 checkpoint."
 )
 LOAD_FAILED_MESSAGE = "The model failed to load. Check the Space logs for the error."
 _DISCLAIMER = (
@@ -79,6 +91,42 @@ def weights_path() -> Path:
     return Path(os.environ.get("REID_WEIGHTS") or HERE / "best.pth")
 
 
+def download_release_weights(
+    path: Path,
+    *,
+    url: str = _RELEASE_URL,
+    expected_sha256: str = _RELEASE_SHA256,
+    expected_bytes: int = _RELEASE_BYTES,
+) -> None:
+    """Download pinned release weights into a temporary file, verify, then commit.
+
+    Never overwrite an existing file. Network calls occur only when explicitly
+    invoked, not on import. Errors leave no incomplete checkpoint behind.
+    """
+    if path.exists():
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(dir=path.parent, suffix=".part", delete=False) as tmp:
+            temp_path = Path(tmp.name)
+            digest = hashlib.sha256()
+            received = 0
+            with urllib.request.urlopen(url, timeout=60) as response:
+                while chunk := response.read(1024 * 1024):
+                    received += len(chunk)
+                    if received > expected_bytes:
+                        raise ValueError("Release checkpoint exceeded its expected size.")
+                    digest.update(chunk)
+                    tmp.write(chunk)
+        if received != expected_bytes or digest.hexdigest() != expected_sha256:
+            raise ValueError("Release checkpoint checksum or size mismatch.")
+        os.replace(temp_path, path)
+    finally:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
+
+
 def load(path: Path) -> tuple[LoadedModel | None, str | None]:
     """Rebuild the model from a checkpoint without any network access.
 
@@ -111,12 +159,21 @@ def load(path: Path) -> tuple[LoadedModel | None, str | None]:
 
 @functools.cache
 def get_model() -> tuple[LoadedModel | None, str | None]:
-    """Load the Space's model once and cache the result.
+    """Load the checkpoint once, optionally provisioning verified release weights."""
+    path = weights_path()
+    if not path.is_file() and os.environ.get("SPACE_ID"):
+        try:
+            download_release_weights(path)
+        except (OSError, ValueError) as exc:
+            logger.error("Could not provision the verified release weights: %s", exc)
+            return None, LOAD_FAILED_MESSAGE
 
-    Returns:
-        The cached result of :func:`load` for :func:`weights_path`.
-    """
-    return load(weights_path())
+    loaded, error = load(path)
+    if loaded is not None and os.environ.get("SPACES_ZERO_GPU") == "1":
+        # ZeroGPU emulates CUDA placement at Space startup and activates a real
+        # GPU only inside the @spaces.GPU-decorated Gradio event handler.
+        loaded.model.to("cuda")
+    return loaded, error
 
 
 @torch.no_grad()
@@ -130,7 +187,8 @@ def embed(loaded: LoadedModel, image: Image.Image) -> torch.Tensor:
     Returns:
         An L2-normalized feature tensor of shape ``(1, feat_dim)``.
     """
-    tensor = loaded.transform(image.convert("RGB")).unsqueeze(0)
+    device = "cuda" if os.environ.get("SPACES_ZERO_GPU") == "1" else "cpu"
+    tensor = loaded.transform(image.convert("RGB")).unsqueeze(0).to(device)
     feat = loaded.model.extract_features(tensor).float()
     if loaded.flip_tta:
         feat = (feat + loaded.model.extract_features(torch.flip(tensor, dims=[3])).float()) / 2
@@ -234,8 +292,16 @@ def build_demo(examples: list[list[str]] | None = None) -> gr.Interface:
         "cosine similarity. This is a feature-space comparison, not an identity "
         "decision; no same-person threshold has been validated."
     )
+    prediction_fn = compare
+    if os.environ.get("SPACES_ZERO_GPU") == "1":
+        import spaces
+
+        # Decorate the exact callable bound to Gradio, so ZeroGPU allocates
+        # GPU time only for interactive predictions.
+        prediction_fn = spaces.GPU(duration=60)(compare)
+
     return gr.Interface(
-        fn=compare,
+        fn=prediction_fn,
         inputs=[
             gr.Image(type="pil", label="Person A"),
             gr.Image(type="pil", label="Person B"),
