@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Optional deployment and experiments
+- Prepare eligible Hugging Face ZeroGPU hosting instead of assuming new
+  Gradio Spaces can be created on free CPU Basic. Provision released weights
+  on first Space startup with SHA-256 and size verification; use a compatible
+  PyTorch/Python runtime and a ZeroGPU GPU-decorated Gradio callback.
+- Add an explicit, no-paid-fallback Hugging Face deployment command that
+  only uploads the three public Space source files when authorized.
+- Add a resumable multi-seed ablation command executor with preview-by-default,
+  no-implicit-compute behavior and an explicit test-evaluation opt-in.
+- Document the two remaining account-side tasks: HF publication and GitHub
+  About/Website metadata editing.
+
 ### Reproducibility
 - Pin the Colab notebook to a specific reviewed source commit and install
   from `uv.lock` instead of cloning moving `main` and using floating pip

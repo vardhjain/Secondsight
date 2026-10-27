@@ -1,9 +1,6 @@
-# The Space image already provides gradio at the version set by sdk_version in
-# README.md, so it is deliberately not listed here. CPU-only PyTorch keeps the
-# image small: pip pulls the CPU wheels from the PyTorch index below, then
-# installs the core Secondsight library (no optional extras) from GitHub, which
-# provides the importable `reid` package used by app.py.
---extra-index-url https://download.pytorch.org/whl/cpu
-torch>=2.3
-torchvision>=0.18
+# Compatible with Hugging Face ZeroGPU's supported PyTorch versions. Use
+# PyPI/CUDA-capable wheels (NOT the CPU-only index) on ZeroGPU.
+torch==2.10.0
+torchvision==0.25.0
+# Immutable model code from the published release, not a moving branch.
 secondsight @ git+https://github.com/vardhjain/Secondsight.git@v0.2.0

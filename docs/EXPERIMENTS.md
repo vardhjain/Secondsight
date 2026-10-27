@@ -41,8 +41,31 @@ created the plan, execute each `train_argv` command listed in
 `outputs/ablations/manifest.json` manually. Then execute the four
 `argv` evaluation commands for each completed training run.
 
-The executable arrays avoid shell quoting assumptions but are not invoked
-automatically. Each run writes its own `model_final.pth` and metric JSONs.
+You can now preview and resume execution of those commands with the
+[ablation executor](../scripts/execute_ablations.py). It never starts
+training unless explicitly passed `--apply`. For example, after making
+Market-1501 available in `REID_DATA_ROOT` on a GPU machine or a free
+Colab session:
+
+```bash
+# Nine training runs across three seeds; preview (no GPU work):
+python scripts/plan_ablations.py --output-dir outputs/ablations --seeds 42 123 456
+python scripts/execute_ablations.py --manifest outputs/ablations/manifest.json
+
+# Only when dataset access and enough compute have been confirmed:
+python scripts/execute_ablations.py --manifest outputs/ablations/manifest.json \
+  --device cuda --stage train --apply
+
+# Exploratory benchmark evaluation only; never use it to choose a model:
+python scripts/execute_ablations.py --manifest outputs/ablations/manifest.json \
+  --device cuda --stage evaluate --allow-test-evaluation --apply
+```
+
+The executor skips completed outputs and checks that expected artifacts were
+actually written. It does not provision GPUs, bypass quota restrictions or
+autonomously launch Colab. Full nine-run training was **not executed** in CI
+and could exceed free-tier limits; validate on a small subset first using
+`--max-runs 1`. Each run writes its own `model_final.pth` and metric JSONs.
 The `outputs/` folder is git-ignored. Do not commit model weights, benchmark
 dataset crops, or large results directories.
 

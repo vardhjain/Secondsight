@@ -15,6 +15,7 @@ release results, not a multi-seed or cross-dataset evaluation.
 
 **[🔎 90-second project tour](docs/PROJECT_SHOWCASE.md)** &nbsp;·&nbsp;
 **[🧪 Reproducible experiments](docs/EXPERIMENTS.md)** &nbsp;·&nbsp;
+**[🚀 Deploy a demo](space/DEPLOYING.md)** &nbsp;·&nbsp;
 **[📦 Trained model + run artifacts](https://github.com/vardhjain/Secondsight/releases/tag/v0.2.0)** &nbsp;·&nbsp;
 **[📊 Results](#results)** &nbsp;·&nbsp;
 **[▶ Run in Colab](https://colab.research.google.com/github/vardhjain/Secondsight/blob/main/notebooks/train_colab.ipynb)** &nbsp;·&nbsp;
@@ -46,7 +47,10 @@ release results, not a multi-seed or cross-dataset evaluation.
 | **Ablation & synthetic profiling tools** | [Experiment protocol](docs/EXPERIMENTS.md), [ablation planner](scripts/plan_ablations.py) and [CPU retrieval benchmark](scripts/benchmark_retrieval.py) |
 
 The repository includes a local Gradio gallery demo and source code for a
-deployable Hugging Face Space; **a public hosted demo has not been verified**.
+deployable Hugging Face ZeroGPU Space with SHA-256-verified release weights;
+**a public hosted demo has not been verified**. The
+[deployment guide](space/DEPLOYING.md) documents the no-cost eligible-account
+route and the final account authorization required.
 The published images below are from the released research run.
 
 <p align="center">
@@ -170,7 +174,10 @@ and an executable CPU-only synthetic retrieval benchmark. The planner writes
 configurations and commands; **it does not train or claim new accuracy
 measurements**. Missing experiment scores remain pending in the generated
 report, and synthetic timings are never presented as full-model or Market-1501
-benchmark latency. The generated `outputs/` files are git-ignored.
+benchmark latency. The generated `outputs/` files are git-ignored. A resumable
+[ablation executor](scripts/execute_ablations.py) now prints proposed commands
+by default and only launches multi-seed training on user-supplied compute with
+`--apply`; test-split sweeps require an additional explicit flag.
 
 ```bash
 python scripts/plan_ablations.py --output-dir outputs/ablations --seeds 42

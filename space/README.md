@@ -5,7 +5,7 @@ colorFrom: indigo
 colorTo: blue
 sdk: gradio
 sdk_version: 6.28.0
-python_version: "3.11"
+python_version: "3.12"
 app_file: app.py
 pinned: false
 license: mit
@@ -19,7 +19,10 @@ learned embeddings are, using the ResNet-50 + BNNeck model from the
 Market-1501. Cosine similarity measures the alignment of two normalized
 feature vectors. It does **not** estimate the probability of an identity match.
 
-The demo runs on CPU, needs no dataset, and does not host the Market-1501
+The demo is designed for eligible no-cost **ZeroGPU** hosting. The first startup
+downloads the released model checkpoint from GitHub and verifies its SHA-256;
+no checkpoint upload or Git LFS setup is needed. It needs no dataset and does
+not host the Market-1501
 gallery. It presents the raw cosine score (from -1 to +1) and **does not
 classify images as the same or different person**. No identity decision
 threshold has been calibrated on held-out pairs, and this model has not been

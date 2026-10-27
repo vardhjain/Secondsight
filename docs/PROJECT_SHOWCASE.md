@@ -133,7 +133,9 @@ dataset bias, and the risks of surveillance-related misuse.
 The [experiment harness](EXPERIMENTS.md) now generates seed-controlled YAML
 ablation configurations and command manifests, plus a CPU-only synthetic
 retrieval timing/memory-estimate report. CI tests these tools **without training
-or downloading Market-1501**. Their results are not a substitute for real
+or downloading Market-1501**. A resumable executor prepares the remaining
+runs on user-supplied compute, but no multi-seed Market-1501 training has yet
+been executed. Their results are not a substitute for real
 ablations: no new accuracy numbers, multi-seed variation, trained-model
 inference throughput or observed peak RAM are claimed. Those require actual
 executed experiments and should be added only with recorded provenance.

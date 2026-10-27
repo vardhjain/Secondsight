@@ -7,7 +7,9 @@ helpers are exercised with a stub model, and checkpoint loading uses a tiny
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
+import io
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -24,6 +26,8 @@ SPACE_APP = Path(__file__).resolve().parents[1] / "space" / "app.py"
 def space(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> ModuleType:
     monkeypatch.chdir(tmp_path)  # prove nothing depends on the working directory
     monkeypatch.delenv("REID_WEIGHTS", raising=False)
+    monkeypatch.delenv("SPACE_ID", raising=False)
+    monkeypatch.delenv("SPACES_ZERO_GPU", raising=False)
     monkeypatch.setenv("GRADIO_ANALYTICS_ENABLED", "False")
     spec = importlib.util.spec_from_file_location("secondsight_space_app", SPACE_APP)
     assert spec is not None and spec.loader is not None
@@ -143,3 +147,55 @@ def test_build_demo_smoke(space: ModuleType) -> None:
     demo = space.build_demo(examples=None)
     assert isinstance(demo, gr.Interface)
     assert space.demo is space.demo  # lazily built once for reload tooling
+
+
+def test_download_release_weights_validates_digest_and_cleans_up(
+    space: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Download once; a bad checksum must not leave a partial weight file."""
+    payload = b"test-pinned-checkpoint"
+    digest = hashlib.sha256(payload).hexdigest()
+
+    class Response(io.BytesIO):
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            self.close()
+
+    monkeypatch.setattr(
+        space.urllib.request, "urlopen", lambda *_args, **_kwargs: Response(payload)
+    )
+    target = tmp_path / "nested" / "best.pth"
+    space.download_release_weights(target, expected_sha256=digest, expected_bytes=len(payload))
+    assert target.read_bytes() == payload
+    assert not list(target.parent.glob("*.part"))
+    # An existing, manually provisioned checkpoint is not overwritten.
+    space.download_release_weights(target, expected_sha256="bad", expected_bytes=1)
+    assert target.read_bytes() == payload
+
+    bad = tmp_path / "bad.pth"
+    with pytest.raises(ValueError, match="checksum"):
+        space.download_release_weights(bad, expected_sha256="0" * 64, expected_bytes=len(payload))
+    assert not bad.exists()
+    assert not list(tmp_path.glob("*.part"))
+
+
+def test_hf_space_provisions_weights_only_when_running_on_hub(
+    space: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """No startup network access locally; a Space may fetch pinned weights."""
+    target = tmp_path / "released.pth"
+    monkeypatch.setenv("REID_WEIGHTS", str(target))
+    assert space.get_model() == (None, space.MISSING_WEIGHTS_MESSAGE)
+    space.get_model.cache_clear()
+    monkeypatch.setenv("SPACE_ID", "example/secondsight")
+    calls: list[Path] = []
+
+    def fake_download(path: Path) -> None:
+        calls.append(path)
+        raise ValueError("test checksum mismatch")
+
+    monkeypatch.setattr(space, "download_release_weights", fake_download)
+    assert space.get_model() == (None, space.LOAD_FAILED_MESSAGE)
+    assert calls == [target]
