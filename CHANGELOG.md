@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   no-dataset regression tests and a fast CI smoke run for all three scripts.
 - Experiment protocol explaining train/eval cost, benchmark test holdout,
   synthetic-versus-real measurements, and the steps for optional repeated seeds.
+- Preserve CI smoke outputs as downloadable artifacts so reviewers can inspect
+  a real synthetic timing JSON and an honest pending-data ablation report.
 
 ### Documentation
 - Make the repository's first screen point to real release artifacts, the

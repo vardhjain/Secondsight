@@ -104,6 +104,14 @@ Only compare timings on equivalent hardware, dependency versions, inputs,
 warmups and thread counts. Avoid treating synthetic performance as a
 production serving latency or accuracy claim.
 
+### CI evidence without paid compute
+
+The Python 3.11 CI leg executes a small synthetic CPU benchmark and uploads
+an `experiment-harness-smoke` artifact containing its raw timing JSON, the
+ablation command manifest and a report with accuracy rows marked pending.
+This is an execution smoke test, **not** a repeatable cross-machine performance
+comparison or a trained-model benchmark.
+
 ## 4. Existing evidence and future work
 
 Start with [the released v0.2.0 model artifacts](https://github.com/vardhjain/Secondsight/releases/tag/v0.2.0)

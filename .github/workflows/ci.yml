@@ -95,6 +95,17 @@ jobs:
             --warmups 0 --k1 3 --k2 2 \
             --output "$RUNNER_TEMP/retrieval-ci.json"
 
+      - name: Upload experiment harness smoke artifacts
+        if: matrix.python-version == '3.11'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: experiment-harness-smoke
+          path: |
+            ${{ runner.temp }}/ablation-ci/manifest.json
+            ${{ runner.temp }}/ablation-ci/report.md
+            ${{ runner.temp }}/retrieval-ci.json
+          if-no-files-found: error
+
   typecheck:
     name: Type check (mypy)
     runs-on: ubuntu-latest
