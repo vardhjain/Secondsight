@@ -2,14 +2,22 @@
 
 # 🔍 Secondsight
 
-### Find the same person again on a different camera
+### Cross-camera image retrieval with PyTorch and metric learning
 
-Secondsight is a person re-identification system. You give it one cropped photo of a person, and it
-searches a large collection of other photos and ranks them by how likely each one shows that same
-person, seen later by a different camera. On the standard Market-1501 benchmark the right person is
-the very first result **93.9% of the time**, and **95.0%** with an extra re-ranking step.
+Secondsight is an end-to-end **person re-identification research project** built with
+ResNet-50, BNNeck, metric learning, and k-reciprocal re-ranking. Given a cropped
+person image, it ranks candidates from another camera by embedding similarity.
+It produces retrieval rankings, **not verified identity decisions**.
 
-**[▶ Train it in Colab](https://colab.research.google.com/github/vardhjain/Secondsight/blob/main/notebooks/train_colab.ipynb)** &nbsp;·&nbsp; **[📊 Results](#results)** &nbsp;·&nbsp; **[⚙️ How it works](#how-it-works)** &nbsp;·&nbsp; **[🧠 Model card](docs/MODEL_CARD.md)**
+**Market-1501 · one published run (seed 42): 93.69% mAP / 94.95% Rank-1 with re-ranking.**
+Without re-ranking: 84.78% mAP / 93.88% Rank-1. These are historical v0.2.0
+release results, not a multi-seed or cross-dataset evaluation.
+
+**[🔎 90-second project tour](docs/PROJECT_SHOWCASE.md)** &nbsp;·&nbsp;
+**[📦 Trained model + run artifacts](https://github.com/vardhjain/Secondsight/releases/tag/v0.2.0)** &nbsp;·&nbsp;
+**[📊 Results](#results)** &nbsp;·&nbsp;
+**[▶ Run in Colab](https://colab.research.google.com/github/vardhjain/Secondsight/blob/main/notebooks/train_colab.ipynb)** &nbsp;·&nbsp;
+**[🧠 Model card](docs/MODEL_CARD.md)**
 
 [![CI](https://github.com/vardhjain/Secondsight/actions/workflows/ci.yml/badge.svg)](https://github.com/vardhjain/Secondsight/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue.svg)](https://www.python.org/downloads/)
@@ -25,6 +33,19 @@ the very first result **93.9% of the time**, and **95.0%** with an extra re-rank
 > research and benchmarking.
 
 ---
+
+## What you can verify in this repo
+
+| Evidence | Open it |
+| --- | --- |
+| **Working model artifact** | [v0.2.0 trained weights, config, history, and results](https://github.com/vardhjain/Secondsight/releases/tag/v0.2.0) |
+| **Measured retrieval results** | [Recorded metrics JSON](https://github.com/vardhjain/Secondsight/releases/download/v0.2.0/results.json) and [full benchmark table](#results) |
+| **Training and evaluation implementation** | [Training CLI](src/reid/cli/train.py), [evaluator](src/reid/evaluation/evaluator.py), and [tests](tests/) |
+| **Engineering decisions and limits** | [Technical case study](docs/PROJECT_SHOWCASE.md) and [model card](docs/MODEL_CARD.md) |
+
+The repository includes a local Gradio gallery demo and source code for a
+deployable Hugging Face Space; **a public hosted demo has not been verified**.
+The published images below are from the released research run.
 
 <p align="center">
   <img src="docs/images/gradcam.png" alt="Grad-CAM heatmaps showing which parts of each person crop the model relies on" width="820">
@@ -68,10 +89,22 @@ placing every photo of the right person near the top, not only the first one. **
 optional second pass that reorders the results by checking whether two photos also appear in each
 other's lists of closest matches.
 
-These numbers land within about one point of the published reference while training for half as many
-epochs. They are also reported conservatively. They come from the weights at the end of training,
-evaluated a single time on the test set, and never from a checkpoint that was picked because it
-scored best on that same test set. They are single-run numbers with no averaging over random seeds.
+The metrics above come from the **final-epoch checkpoint of a single v0.2.0 run**
+(seed 42, 60 epochs), not a checkpoint selected using the test-set score. That
+historical training run nevertheless **monitored the test set periodically**,
+which creates a risk of experiment-level feedback. The current training code
+no longer does so: it tests final weights only after training. The published
+metrics have **not** been rerun under that updated workflow. The literature
+reference is not a controlled apples-to-apples comparison because the recipes
+and evaluation settings differ.
+
+Re-ranking improves mAP and Rank-1 here, but **Rank-5 falls from 98.25% to
+97.65% and Rank-10 from 98.90% to 98.40%**. Results are not averaged over
+multiple seeds, and out-of-domain accuracy is not characterized.
+
+For the exact v0.2.0 outputs, see the [results JSON](https://github.com/vardhjain/Secondsight/releases/download/v0.2.0/results.json),
+[checkpoint](https://github.com/vardhjain/Secondsight/releases/download/v0.2.0/model_final.pth),
+and [training history](https://github.com/vardhjain/Secondsight/releases/download/v0.2.0/history.json).
 
 <p align="center">
   <img src="docs/images/rerank_impact.png" alt="Three searches where re-ranking replaces a wrong top match with the correct person" width="420">
@@ -95,9 +128,16 @@ scored best on that same test set. They are single-run numbers with no averaging
 
 ## Quick start
 
-The fastest way to see everything run is the Colab notebook. A single **Run all** on a free T4 GPU
-installs the package, downloads the dataset, trains the model, evaluates it, renders the figures, and
-packages the outputs as a zip file.
+To inspect the work **without training or a GPU**, start with the
+[90-second technical case study](docs/PROJECT_SHOWCASE.md), the
+[re-ranked retrieval examples](docs/images/rerank_impact.png), and the
+[released model, configuration and metric files](https://github.com/vardhjain/Secondsight/releases/tag/v0.2.0).
+You can review the recorded results without downloading any dataset or weights.
+
+For a full new training run, the Colab notebook installs the package, downloads
+Market-1501 (subject to its access terms), trains, evaluates, renders the figures,
+and packages the outputs as a zip file. GPU access and availability vary; the
+model is **not** required just to inspect the showcase.
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/vardhjain/Secondsight/blob/main/notebooks/train_colab.ipynb)
 
@@ -240,11 +280,12 @@ you upload a photo and browse the closest matches from the Market-1501 gallery o
 python app/gradio_app.py --weights outputs/model_final.pth --data-root /path/to/Market-1501-v15.09.15
 ```
 
-The second, in the [`space/`](space/) folder, is a lighter demo packaged for Hugging Face Spaces. A
-visitor uploads two person crops and it reports their raw embedding cosine similarity, without a
-same/different identity verdict or an arbitrary match threshold. It runs on CPU, hosts no gallery,
-and is intended for research demonstration, not real-world identification or tracking. See
-[`space/DEPLOYING.md`](space/DEPLOYING.md) for the deployment steps.
+The second, in the [`space/`](space/) folder, is a lighter demo **ready to deploy**
+to Hugging Face Spaces. A visitor can compare the embedding cosine similarity
+of two consented or otherwise authorized person crops, without a same/different
+identity verdict or arbitrary match threshold. The code runs on CPU and hosts
+no gallery, but a live public deployment is not currently linked from this repo.
+See [`space/DEPLOYING.md`](space/DEPLOYING.md) for setup.
 
 The first demo also ships as a Docker image that is reachable from the host on port 7860.
 

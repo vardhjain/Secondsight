@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "Secondsight"
 dynamic = ["version"]
-description = "Production-grade Person Re-Identification (Re-ID) on the Market-1501 dataset."
+description = "Reproducible PyTorch person re-identification and image retrieval on Market-1501."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
