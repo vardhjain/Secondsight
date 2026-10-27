@@ -62,10 +62,10 @@ def split_validation_ids(
 ) -> ValidationSplit:
     """Hold out whole training identities as a validation query and gallery split.
 
-    Only identities seen by at least two cameras are eligible, so every
-    validation query has a cross-camera match in the validation gallery
-    whenever that identity has more than one image in some camera. The held-out
-    identities are drawn with a private :class:`random.Random` seeded by
+    Only identities with at least two images on each of two different cameras
+    are eligible. Because one image per camera becomes a query, this guarantees
+    that every validation query has a valid cross-camera gallery match. The
+    held-out identities are drawn with a private :class:`random.Random` seeded by
     ``seed``, so the split is deterministic and does not disturb the global RNG.
     For each held-out identity the first image (in dataset order) from each
     camera becomes a query and every other image goes to the gallery.
@@ -89,14 +89,19 @@ def split_validation_ids(
     if num_ids == 0:
         return ValidationSplit(list(range(len(pids))), [], [], [])
 
-    cams_per_pid: dict[int, set[int]] = defaultdict(set)
+    camera_counts: dict[int, dict[int, int]] = defaultdict(dict)
     for pid, camid in zip(pids, camids, strict=True):
-        cams_per_pid[pid].add(camid)
-    eligible = sorted(pid for pid, cams in cams_per_pid.items() if len(cams) >= 2)
+        camera_counts[pid][camid] = camera_counts[pid].get(camid, 0) + 1
+    # Every camera contributes one validation query. At least two cameras must
+    # retain a gallery image so queries from *either* camera have cross-camera
+    # positives after the query images have been removed.
+    eligible = sorted(
+        pid for pid, cams in camera_counts.items() if sum(n >= 2 for n in cams.values()) >= 2
+    )
     if num_ids > len(eligible):
         raise ValueError(
             f"Cannot hold out {num_ids} validation identities; only {len(eligible)} "
-            f"training identities are seen by at least two cameras."
+            "training identities have at least two images on each of two cameras."
         )
 
     held_out = set(random.Random(seed).sample(eligible, num_ids))

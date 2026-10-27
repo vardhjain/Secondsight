@@ -22,7 +22,7 @@
 UV ?= uv
 CONFIG ?= configs/market1501_strong_baseline.yaml
 DATA_ROOT ?=
-WEIGHTS ?= outputs/best.pth
+WEIGHTS ?= outputs/model_final.pth
 OUTPUT_DIR ?= outputs
 DEVICE ?= auto
 EXTRAS ?= --extra all --extra dev

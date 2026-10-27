@@ -14,7 +14,7 @@ data:
   pad: 10
   random_erasing: true
   re_prob: 0.5
-  val_ids: 0
+  val_ids: 0  # no periodic validation; final test evaluation still runs
 
 model:
   name: resnet50

@@ -9,7 +9,7 @@
 #   docker compose up --build
 # then open http://localhost:7860
 #
-# Put a trained checkpoint at ./outputs/best.pth. For gallery search, point
+# Put a trained checkpoint at ./outputs/model_final.pth. For gallery search, point
 # SECONDSIGHT_DATA_DIR at the host folder that directly contains
 # bounding_box_test/ (the path printed by `make download`). Both host paths can
 # be set in a local .env file, which compose reads automatically; see
@@ -25,12 +25,12 @@ services:
     ports:
       - "127.0.0.1:7860:7860"
     environment:
-      REID_WEIGHTS: /app/outputs/best.pth
+      REID_WEIGHTS: /app/outputs/model_final.pth
       REID_DATA_ROOT: /app/data
       GRADIO_SERVER_NAME: "0.0.0.0"
       GRADIO_SERVER_PORT: "7860"
     volumes:
-      # Trained weights and run artifacts (best.pth, model_final.pth, logs).
+      # Trained weights and run artifacts (model_final.pth, optional best.pth, logs).
       - ${SECONDSIGHT_OUTPUTS_DIR:-./outputs}:/app/outputs:ro
       # Optional: the Market-1501 dataset root for gallery browsing.
       - ${SECONDSIGHT_DATA_DIR:-./data}:/app/data:ro

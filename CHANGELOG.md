@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Skip periodic evaluation entirely when no validation holdout is requested
+  (`data.val_ids: 0`). Evaluate the test split only once, after training, and
+  do not create `best.pth` without validation metrics.
+- Require enough per-camera samples in validation identities for every query
+  to retain a cross-camera positive in the validation gallery.
+- Use the always-produced `model_final.pth` as the default weight path in
+  local demo and Docker workflows.
+
 ## [0.2.0] - 2026-10-04
 
 ### Added
